@@ -55,7 +55,7 @@ exports.signin = async (req, res) => {
             { expiresIn: '1d' } // Token valid for 1 day
         );
 
-        res.status(200).json({ message: 'Signin successful.', token });
+        res.status(200).json({ message: 'Signin successful.', token, user });
     } catch (error) {
         res.status(500).json({ message: 'Error signing in.', error: error.message });
     }
