@@ -29,9 +29,10 @@ export default function Login (){
         try {
             setLoading(true);
             const response = await axios.post(`http://localhost:1517/user/signin`, data);
-            const { token, email } = response.data;
+            const token = response.data.token;
+            const user = response.data.user;
             localStorage.setItem('token', token);
-            localStorage.setItem('email', email);
+            localStorage.setItem('user', JSON.stringify(user));
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             toast({
                 // variant: "success",
