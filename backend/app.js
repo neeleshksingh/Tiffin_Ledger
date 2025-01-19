@@ -11,6 +11,9 @@ app.use(cors());
 app.use('/tiffin', tiffinTrackingRoutes);
 app.use('/user', User);
 
+app.get('/', (req, res) => {
+    res.status(200).send('Backend OK');
+})
 
 app.get('*', (req, res) => {
     res.status(404).send('Api not found');
