@@ -5,6 +5,7 @@ const tiffinTrackingRoutes = require('./routes/tiffin-tracking.routes');
 const User = require('./routes/authentication.routes');
 const cors = require('cors');
 const app = express();
+require('dotenv').config();
 
 app.use(express.json());
 app.use(cors());
@@ -19,4 +20,4 @@ app.get('*', (req, res) => {
     res.status(404).send('Api not found');
 })
 
-app.listen(1517 || process.env.PORT, () => console.log("listening on port 1517"));
+app.listen(process.env.PORT, () => console.log("listening on port 1517"));

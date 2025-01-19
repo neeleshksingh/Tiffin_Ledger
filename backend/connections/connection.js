@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
-const {uri} = require('../key');
+require('dotenv').config();
+
+const uri = process.env.MONGODB_URI;
 
 mongoose.set(`strictQuery`, true);
 async function getConnection() {
