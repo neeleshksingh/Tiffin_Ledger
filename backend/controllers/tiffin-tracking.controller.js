@@ -34,9 +34,9 @@ exports.getTrackingData = async (req, res) => {
 
     const tiffinTracking = await TiffinTracking.find(query);
 
-    if (!tiffinTracking || tiffinTracking.length === 0) {
-      return res.status(404).json({ message: 'No tracking data found' });
-    }
+    // if (!tiffinTracking || tiffinTracking.length === 0) {
+    //   return res.status(404).json({ message: 'No tracking data found' });
+    // }
 
     res.status(200).json({ data: tiffinTracking });
   } catch (error) {
