@@ -29,7 +29,7 @@ export default function Login (){
 
         try {
             setLoading(true);
-            const response = await axios.post(`${process.env.NEXT_PUBLIC_API_ENDPOINT}/user/signin`, data);
+            const response = await axios.post(`${process.env.NEXT_PUBLIC_API_ENDPOINT}user/signin`, data);
             const token = response.data.token;
             const user = response.data.user;
             localStorage.setItem('token', token);
