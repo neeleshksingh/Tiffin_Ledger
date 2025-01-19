@@ -5,6 +5,7 @@ import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Cookies from 'js-cookie';
 
 export default function Login (){
 
@@ -28,11 +29,12 @@ export default function Login (){
 
         try {
             setLoading(true);
-            const response = await axios.post(`http://localhost:1517/user/signin`, data);
+            const response = await axios.post(`https://tiffin-ledger.vercel.app/user/signin`, data);
             const token = response.data.token;
             const user = response.data.user;
             localStorage.setItem('token', token);
             localStorage.setItem('user', JSON.stringify(user));
+            Cookies.set('token', token, { secure: true, httpOnly: false });
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             toast({
                 // variant: "success",

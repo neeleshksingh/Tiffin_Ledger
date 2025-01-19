@@ -4,11 +4,15 @@ import { useState, useEffect } from "react";
 import axiosInstance from "@components/interceptors/axios.interceptor";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
+import { useRouter } from "next/navigation";
 
 export default function Timetable() {
     const [date, setDate] = useState(new Date());
     const [monthDays, setMonthDays] = useState({});
     const [currentMonth, setCurrentMonth] = useState(new Date());
+    const nav = useRouter();
+    const [totalAmount, setTotalAmount] = useState(0);
+    const [payableDays, setPayableDays] = useState(0);
 
     const fetchMonthData = async (month) => {
         try {
@@ -22,12 +26,19 @@ export default function Timetable() {
                 ).padStart(2, "0")}`;
 
                 const response = await axiosInstance.get(
-                    `http://localhost:1517/tiffin/track/get?userId=${userId}&month=${formattedMonth}`
+                    `https://tiffin-ledger.vercel.app/tiffin/track/get?userId=${userId}&month=${formattedMonth}`
                 );
 
-                console.log("Data fetched successfully:", response.data);
                 const data = response.data.data[0];
+
+                const daysData = data?.days || {};
+                const payableDays = Object.values(daysData).filter((day) => day === true).length;
+                setPayableDays(payableDays);
+                setTotalAmount(payableDays * 50);
+
                 setMonthDays(data?.days || {});
+            } else {
+                nav.push("/login");
             }
         } catch (error) {
             console.error("Error fetching month data:", error);
@@ -71,6 +82,10 @@ export default function Timetable() {
                     ...prevDays,
                     [dayNumber]: newDayStatus,
                 }));
+
+                fetchMonthData(currentMonth);
+            } else {
+                nav.push("/login");
             }
         } catch (error) {
             console.error("Error updating date:", error);
@@ -117,7 +132,7 @@ export default function Timetable() {
                     }}
                 />
             </div>
-            <p>{date.toDateString()}</p>
+            <p>Total payable amount: <b>{totalAmount}</b>  for total of {payableDays} days of this month. </p>
         </div>
     );
 }
