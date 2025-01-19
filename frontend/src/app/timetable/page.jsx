@@ -25,9 +25,7 @@ export default function Timetable() {
                     month.getMonth() + 1
                 ).padStart(2, "0")}`;
 
-                const response = await axiosInstance.get(
-                    `https://tiffin-ledger.vercel.app/tiffin/track/get?userId=${userId}&month=${formattedMonth}`
-                );
+                const response = await axiosInstance.get(`/tiffin/track/get?userId=${userId}&month=${formattedMonth}`);
 
                 const data = response.data.data[0];
 
@@ -73,10 +71,7 @@ export default function Timetable() {
                     },
                 };
 
-                const response = await axiosInstance.post(
-                    `http://localhost:1517/tiffin/track/add`,
-                    payload
-                );
+                const response = await axiosInstance.post(`/tiffin/track/add`, payload);
 
                 setMonthDays((prevDays) => ({
                     ...prevDays,

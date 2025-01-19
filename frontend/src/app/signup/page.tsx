@@ -28,7 +28,7 @@ export default function SignUp (){
 
         try {
             setLoading(true);
-            const response = await axios.post(`http://localhost:1517/user/signup`, data);
+            const response = await axios.post(`${process.env.NEXT_PUBLIC_API_ENDPOINT}/user/signup`, data);
             toast({
                 // variant: "success",
                 title: "Signup successful",
