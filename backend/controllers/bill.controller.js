@@ -71,8 +71,12 @@ const generateBillPDF = async (req, res) => {
 
         // Log generated HTML for debugging
         console.log(html);
+        const pdf = require('html-pdf');
 
-        pdf.create(html).toBuffer((err, buffer) => {
+        // Use the correct path for PhantomJS
+        const phantomPath = '../node_modules/phantomjs-prebuilt/bin/phantomjs';
+
+        pdf.create(html, { phantomPath }).toBuffer((err, buffer) => {
             if (err) {
                 console.error('PDF Generation Error:', err);
                 return res.status(500).json({ message: "Error generating PDF" });
@@ -82,6 +86,9 @@ const generateBillPDF = async (req, res) => {
             res.setHeader("Content-Disposition", 'attachment; filename="bill.pdf"');
             res.send(buffer);
         });
+
+
+
     } catch (error) {
         console.error('Server Error:', error);
         return res.status(500).json({ message: "Server error" });
