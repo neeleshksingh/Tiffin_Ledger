@@ -5,18 +5,20 @@ const User = require('../models/User');
 const TiffinTracking = require('../models/tiffin-tracking');
 
 const generateBillPDF = async (req, res) => {
-    const { userId, invoiceNumber, date } = req.body;
+    const { userId, date } = req.body;
 
-    if (!userId || !invoiceNumber || !date) {
+    if (!userId || !date) {
         return res.status(400).json({ message: "Invalid request data" });
     }
 
     try {
-        // Fetch the user's details using the userId
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
+
+        const uniqueCode = user._id.toString().slice(-4).toUpperCase();
+        const invoiceNumber = `INV${uniqueCode}${Date.now()}`;
 
         const billingInfo = {
             name: user.name,
@@ -43,11 +45,13 @@ const generateBillPDF = async (req, res) => {
         }
 
         const items = datesTaken.map((dateTaken) => {
+            const price = 50;
+            const amount = price * 1;
             return {
                 name: `Tiffin on ${dateTaken}`,
                 quantity: 1,
-                price: 50,
-                amount: 50,
+                price,
+                amount,
             };
         });
 
@@ -64,6 +68,7 @@ const generateBillPDF = async (req, res) => {
             gstAmount,
         });
 
+        // Generate PDF from HTML
         pdf.create(html).toBuffer((err, buffer) => {
             if (err) {
                 return res.status(500).json({ message: "Server error" });
