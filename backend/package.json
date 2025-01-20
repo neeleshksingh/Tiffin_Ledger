@@ -21,6 +21,7 @@
     "mongoose": "^8.9.5",
     "nodemon": "^3.1.9",
     "pdfkit": "^0.16.0",
+    "phantomjs-prebuilt": "^2.1.16",
     "puppeteer": "^24.1.0"
   }
 }
