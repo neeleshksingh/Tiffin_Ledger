@@ -1,7 +1,7 @@
 const pdf = require('html-pdf');
 const ejs = require('ejs');
 const path = require('path');
-const User = require('../models/User');
+const User = require('../models/user');
 const TiffinTracking = require('../models/tiffin-tracking');
 
 const generateBillPDF = async (req, res) => {
