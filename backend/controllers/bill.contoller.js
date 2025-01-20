@@ -12,6 +12,10 @@ const generateBillPDF = async (req, res) => {
     }
 
     try {
+        // Log input for debugging
+        console.log('User ID:', userId);
+        console.log('Date:', date);
+
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
@@ -25,8 +29,6 @@ const generateBillPDF = async (req, res) => {
             gstin: user.gstin,
             address: user.address,
         };
-
-        const shippingInfo = { ...billingInfo };
 
         const tiffinTracking = await TiffinTracking.findOne({ userId });
         if (!tiffinTracking) {
@@ -56,7 +58,6 @@ const generateBillPDF = async (req, res) => {
         });
 
         const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
-
         const gstAmount = (totalAmount * 18) / 100;
 
         const html = await ejs.renderFile(path.join(__dirname, "../views/bill-template.ejs"), {
@@ -68,10 +69,13 @@ const generateBillPDF = async (req, res) => {
             gstAmount,
         });
 
-        // Generate PDF from HTML
+        // Log generated HTML for debugging
+        console.log(html);
+
         pdf.create(html).toBuffer((err, buffer) => {
             if (err) {
-                return res.status(500).json({ message: "Server error" });
+                console.error('PDF Generation Error:', err);
+                return res.status(500).json({ message: "Error generating PDF" });
             }
 
             res.setHeader("Content-Type", "application/pdf");
@@ -79,6 +83,7 @@ const generateBillPDF = async (req, res) => {
             res.send(buffer);
         });
     } catch (error) {
+        console.error('Server Error:', error);
         return res.status(500).json({ message: "Server error" });
     }
 };
