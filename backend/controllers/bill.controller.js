@@ -220,6 +220,7 @@ const generateBillPDF = async (req, res) => {
         // Generate PDF from the HTML content
         pdf.create(htmlContent).toBuffer((err, buffer) => {
             if (err) {
+                console.error('Error generating PDF:', err);
                 return res.status(500).json({ message: "Error generating PDF" });
             }
 
