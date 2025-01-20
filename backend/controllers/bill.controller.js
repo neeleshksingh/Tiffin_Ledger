@@ -12,13 +12,12 @@ const generateBillPDF = async (req, res) => {
     }
 
     try {
-        // Log input for debugging
-        console.log('User ID:', userId);
-        console.log('Date:', date);
-
+        // Fetch user and tiffin tracking data
         const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
+        const tiffinTracking = await TiffinTracking.findOne({ userId });
+
+        if (!user || !tiffinTracking) {
+            return res.status(404).json({ message: "User or Tiffin tracking data not found" });
         }
 
         const uniqueCode = user._id.toString().slice(-4).toUpperCase();
@@ -29,11 +28,6 @@ const generateBillPDF = async (req, res) => {
             gstin: user.gstin,
             address: user.address,
         };
-
-        const tiffinTracking = await TiffinTracking.findOne({ userId });
-        if (!tiffinTracking) {
-            return res.status(404).json({ message: "Tiffin tracking data not found" });
-        }
 
         const datesTaken = [];
         tiffinTracking.days.forEach((value, key) => {
@@ -48,46 +42,46 @@ const generateBillPDF = async (req, res) => {
 
         const items = datesTaken.map((dateTaken) => {
             const price = 50;
-            const amount = price * 1;
             return {
                 name: `Tiffin on ${dateTaken}`,
                 quantity: 1,
                 price,
-                amount,
+                amount: price,
             };
         });
 
         const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
         const gstAmount = (totalAmount * 18) / 100;
+        const grandTotal = totalAmount + gstAmount;
 
-        const html = await ejs.renderFile(path.join(__dirname, "../views/bill-template.ejs"), {
+        // Render EJS template
+        const ejsPath = path.join(__dirname, '../views/bill-template.ejs');
+        const html = await ejs.renderFile(ejsPath, {
             invoiceNumber,
             date,
             billingInfo,
             items,
             totalAmount,
             gstAmount,
+            grandTotal,
         });
 
-        // Log generated HTML for debugging
-        console.log(html);
-        const pdf = require('html-pdf');
+        // Convert HTML to PDF
+        const options = {
+            format: 'A4',
+            orientation: 'portrait',
+        };
 
-        // Use the correct path for PhantomJS
-        const phantomPath = '../node_modules/phantomjs-prebuilt/bin/phantomjs';
-
-        pdf.create(html, { phantomPath }).toBuffer((err, buffer) => {
+        pdf.create(html, options).toStream((err, stream) => {
             if (err) {
-                console.error('PDF Generation Error:', err);
-                return res.status(500).json({ message: "Error generating PDF" });
+                console.error('PDF generation error:', err);
+                return res.status(500).json({ message: "Failed to generate PDF." });
             }
 
-            res.setHeader("Content-Type", "application/pdf");
-            res.setHeader("Content-Disposition", 'attachment; filename="bill.pdf"');
-            res.send(buffer);
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', 'attachment; filename="bill.pdf"');
+            stream.pipe(res);
         });
-
-
 
     } catch (error) {
         console.error('Server Error:', error);
@@ -95,6 +89,4 @@ const generateBillPDF = async (req, res) => {
     }
 };
 
-module.exports = {
-    generateBillPDF,
-};
+module.exports = { generateBillPDF };
