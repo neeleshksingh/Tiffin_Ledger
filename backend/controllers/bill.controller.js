@@ -1,4 +1,4 @@
-const pdf = require('html-pdf');
+const PDFDocument = require('pdfkit');
 const User = require('../models/user');
 const TiffinTracking = require('../models/tiffin-tracking');
 
@@ -60,174 +60,69 @@ const generateBillPDF = async (req, res) => {
         const gstAmount = (totalAmount * 18) / 100;
         const grandTotal = totalAmount + gstAmount;
 
-        const htmlContent = `
-          <html>
-            <head>
-              <style>
-                body {
-                  font-family: 'Arial', sans-serif;
-                  margin: 0;
-                  padding: 0;
-                  color: #333;
-                  background-color: #f4f4f4;
-                }
-                .container {
-                  width: 80%;
-                  margin: auto;
-                  background-color: white;
-                  padding: 20px;
-                  border-radius: 8px;
-                  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                }
-                .invoice-header {
-                  text-align: center;
-                  margin-bottom: 30px;
-                }
-                .invoice-header h2 {
-                  margin: 0;
-                  color: #007bff;
-                }
-                .invoice-header p {
-                  margin: 5px 0;
-                  font-size: 14px;
-                  color: #555;
-                }
-                .invoice-table {
-                  width: 100%;
-                  border-collapse: collapse;
-                  margin-bottom: 30px;
-                }
-                .invoice-table th, .invoice-table td {
-                  padding: 8px;
-                  text-align: left;
-                  border: 1px solid #ddd;
-                }
-                .invoice-table th {
-                  background-color: #f2f2f2;
-                  color: #555;
-                }
-                .invoice-table td {
-                  font-size: 14px;
-                  color: #333;
-                }
-                .table {
-                  width: 100%;
-                  margin-top: 20px;
-                  border-collapse: collapse;
-                  border: 1px solid #ddd;
-                }
-                .table th, .table td {
-                  padding: 8px;
-                  text-align: left;
-                  border: 1px solid #ddd;
-                }
-                .table th {
-                  background-color: #f2f2f2;
-                  color: #555;
-                }
-                .table td {
-                  font-size: 14px;
-                  color: #333;
-                }
-                .table tfoot td {
-                  font-weight: bold;
-                  background-color: #f2f2f2;
-                }
-                .total {
-                  margin-top: 20px;
-                  display: flex;
-                  justify-content: space-between;
-                  font-size: 16px;
-                  padding-top: 10px;
-                }
-                .footer {
-                  text-align: center;
-                  font-size: 12px;
-                  color: #777;
-                  margin-top: 40px;
-                }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="invoice-header">
-                  <h2>Invoice</h2>
-                  <p>Invoice Number: ${invoiceNumber}</p>
-                  <p>Date: ${date}</p>
-                </div>
-                
-                <table class="invoice-table">
-                  <tbody>
-                    <tr>
-                      <td>Name</td>
-                      <td>${billingInfo.name}</td>
-                    </tr>
-                    <tr>
-                      <td>GSTIN</td>
-                      <td>${billingInfo.gstin}</td>
-                    </tr>
-                    <tr>
-                      <td>Address</td>
-                      <td>${billingInfo.address}</td>
-                    </tr>
-                  </tbody>
-                </table>
-                
-                <table class="table">
-                  <thead>
-                    <tr>
-                      <th>Description</th>
-                      <th>Quantity</th>
-                      <th>Price</th>
-                      <th>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${items.map(item => `
-                      <tr>
-                        <td>${item.name}</td>
-                        <td>${item.quantity}</td>
-                        <td>${item.price}</td>
-                        <td>${item.amount}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td colspan="3" style="text-align: right;">Total Amount:</td>
-                      <td>${totalAmount}</td>
-                    </tr>
-                    <tr>
-                      <td colspan="3" style="text-align: right;">GST (18%):</td>
-                      <td>${gstAmount}</td>
-                    </tr>
-                    <tr>
-                      <td colspan="3" style="text-align: right;">Grand Total:</td>
-                      <td>${grandTotal}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-                
-                <div class="footer">
-                  <p>Thank you for your business!</p>
-                </div>
-              </div>
-            </body>
-          </html>
-        `;
+        // Create a PDF document
+        const doc = new PDFDocument({ size: 'A4', margin: 50 });
 
+        // Set the response headers for PDF download
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="bill.pdf"');
 
-        // Generate PDF from the HTML content
-        pdf.create(htmlContent).toBuffer((err, buffer) => {
-            if (err) {
-                console.error('Error generating PDF:', err);
-                return res.status(500).json({ message: "Error generating PDF" });
-            }
+        // Pipe the document to the response
+        doc.pipe(res);
 
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', 'attachment; filename="bill.pdf"');
-            res.send(buffer);
+        // Header - Invoice Info
+        doc.fontSize(16).font('Helvetica-Bold').text('Invoice', { align: 'center' });
+        doc.fontSize(12).font('Helvetica').text(`Invoice Number: ${invoiceNumber}`, { align: 'center' });
+        doc.text(`Invoice Date: ${date}`, { align: 'center' });
+
+        doc.moveDown(1);
+
+        // Billing Information
+        doc.fontSize(12).font('Helvetica-Bold').text('Billing Information:', { underline: true });
+        doc.fontSize(12).font('Helvetica').text(`Name: ${billingInfo.name}`);
+        doc.text(`GSTIN: ${billingInfo.gstin}`);
+        doc.text(`Address: ${billingInfo.address}`);
+
+        doc.moveDown(2);
+
+        // Table Header - Aligning the columns
+        const headerY = doc.y;
+        const headerX = 50;
+
+        doc.fontSize(12).font('Helvetica-Bold').text('Description', headerX, headerY);
+        doc.text('Quantity', headerX + 200, headerY, { width: 100, align: 'center' });
+        doc.text('Price', headerX + 300, headerY, { width: 100, align: 'center' });
+        doc.text('Amount', headerX + 400, headerY, { width: 100, align: 'center' });
+
+        // Draw table rows for each item
+        let yPosition = headerY + 20;
+
+        items.forEach(item => {
+            doc.fontSize(10).font('Helvetica').text(item.name, headerX, yPosition, { width: 200, align: 'left' });
+            doc.text(item.quantity.toString(), headerX + 200, yPosition, { width: 100, align: 'center' });
+            doc.text(item.price.toString(), headerX + 300, yPosition, { width: 100, align: 'center' });
+            doc.text(item.amount.toString(), headerX + 400, yPosition, { width: 100, align: 'center' });
+            yPosition += 20;
         });
+
+        // Draw the totals
+        doc.moveDown(1);
+        doc.fontSize(12).font('Helvetica-Bold').text(`Total Amount: ${totalAmount}`, headerX, yPosition + 20);
+        doc.text(`GST (18%): ${gstAmount}`, headerX, yPosition + 40);
+        doc.text(`Grand Total: ${grandTotal}`, headerX, yPosition + 60);
+
+        // Footer section
+        const footerY = yPosition + 80;
+        doc.moveTo(50, footerY)
+            .lineTo(550, footerY)
+            .stroke();
+
+        doc.fontSize(8).font('Helvetica').text('Thank you for your business!', 50, footerY + 10);
+        doc.text('For any inquiries, contact us at support@tiffinservice.com', 50, footerY + 20);
+        doc.text('Terms and conditions apply. Payment due within 7 days of invoice date.', 50, footerY + 30);
+
+        // Finalize the PDF and end the stream
+        doc.end();
 
     } catch (error) {
         console.error('Server Error:', error);
