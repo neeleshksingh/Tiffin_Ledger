@@ -1,4 +1,4 @@
-const pdf = require('html-pdf');
+const pdf = require('puppeteer');
 const ejs = require('ejs');
 const path = require('path');
 const User = require('../models/user');
@@ -72,16 +72,17 @@ const generateBillPDF = async (req, res) => {
         // Log generated HTML for debugging
         console.log(html);
 
-        pdf.create(html).toBuffer((err, buffer) => {
-            if (err) {
-                console.error('PDF Generation Error:', err);
-                return res.status(500).json({ message: "Error generating PDF" });
-            }
-
-            res.setHeader("Content-Type", "application/pdf");
-            res.setHeader("Content-Disposition", 'attachment; filename="bill.pdf"');
-            res.send(buffer);
-        });
+         // Generate PDF using Puppeteer
+         const browser = await pdf.launch();
+         const page = await browser.newPage();
+         await page.setContent(html);
+         const buffer = await page.pdf({ format: 'A4' });
+         await browser.close();
+ 
+         // Send PDF as response
+         res.setHeader("Content-Type", "application/pdf");
+         res.setHeader("Content-Disposition", 'attachment; filename="bill.pdf"');
+         res.send(buffer);
     } catch (error) {
         console.error('Server Error:', error);
         return res.status(500).json({ message: "Server error" });
