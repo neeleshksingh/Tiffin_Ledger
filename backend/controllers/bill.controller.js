@@ -1,4 +1,5 @@
 const pdf = require('html-pdf');
+const phantomPath = require('phantomjs-prebuilt').path;
 const ejs = require('ejs');
 const path = require('path');
 const User = require('../models/user');
@@ -70,14 +71,13 @@ const generateBillPDF = async (req, res) => {
         const options = {
             format: 'A4',
             orientation: 'portrait',
+            phantomPath, // Set the path to phantomjs
         };
-
         pdf.create(html, options).toStream((err, stream) => {
             if (err) {
                 console.error('PDF generation error:', err);
                 return res.status(500).json({ message: "Failed to generate PDF." });
             }
-
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', 'attachment; filename="bill.pdf"');
             stream.pipe(res);
