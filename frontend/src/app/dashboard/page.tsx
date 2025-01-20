@@ -21,6 +21,10 @@ export default function Dashboard() {
 
     useEffect(() => {
         const userDetails = JSON.parse(localStorage.getItem("user") || "{}");
+        const token = localStorage.getItem("token");
+        if (!token) {
+            router.push("/login");
+        }
         setUserName(userDetails.name || 'Guest');
     }, []);
 
@@ -44,11 +48,11 @@ export default function Dashboard() {
     }, [isSidebarOpen]);
 
     return (
-        <div className="w-full h-screen bg-[#f7f7f7] grid lg:grid-cols-[20%,80%] grid-cols-1">
+        <div className="w-full h-screen bg-[#D1FAE5] grid lg:grid-cols-[20%,80%] grid-cols-1">
             {/* Sidebar */}
             <aside
                 ref={sidebarRef}
-                className={`z-[1000] fixed lg:relative lg:block bg-[#f7f7f7] text-black h-screen w-64 lg:w-full transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+                className={`z-[1000] fixed lg:relative lg:block bg-[#D1FAE5] text-black h-screen w-64 lg:w-full transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
                     } lg:translate-x-0`}
             >
                 <div className="p-4 h-full flex flex-col justify-between">
@@ -61,7 +65,7 @@ export default function Dashboard() {
                             <input
                                 type="text"
                                 placeholder="Search..."
-                                className="w-full p-2 text-sm border rounded-full outline-none bg-white"
+                                className="w-full p-2 text-sm border rounded-full outline-none bg-white shadow-md"
                             />
                         </div>
                     </div>
@@ -90,21 +94,21 @@ export default function Dashboard() {
 
 
                     <div>
-                        <div className="border-t pt-4">
-                            <div className="flex items-center gap-3 mb-3 cursor-pointer">
+                        <div className="border-t pt-6">
+                            <div className="flex items-center gap-4 mb-5 cursor-pointer hover:bg-[#e1f7e7] hover:shadow-md rounded-xl p-3 transition-all duration-200">
                                 <Image
                                     src={Profile}
                                     alt="User Avatar"
-                                    width={30}
-                                    height={30}
-                                    className="rounded-full"
+                                    width={35}
+                                    height={35}
+                                    className="rounded-full border-2 border-[#4CAF50] shadow-md"
                                 />
-                                <div>
-                                    <p className="text-sm font-medium">{userName}</p>
+                                <div className="text-sm">
+                                    <p className="font-semibold text-[#374151]">{userName}</p>
                                     <p className="text-xs text-gray-500">View Profile</p>
                                 </div>
                             </div>
-                            <div className="rounded-lg hover:bg-gray-100 p-3 cursor-pointer transition">
+                            <div className="rounded-lg hover:bg-gray-100 hover:shadow-md p-3 cursor-pointer transition">
                                 <span>Help Center</span>
                             </div>
                         </div>
@@ -113,7 +117,7 @@ export default function Dashboard() {
             </aside>
 
             {/* Main Section */}
-            <section className="h-screen bg-[#f7f7f7]">
+            <section className="h-screen bg-[#D1FAE5]">
                 <div className="p-4">
                     <Image
                         src={MenuIcon}
@@ -121,9 +125,9 @@ export default function Dashboard() {
                         width={30}
                         height={30}
                         onClick={() => setIsSidebarOpen(true)}
-                        className="cursor-pointer lg:hidden"
+                        className="cursor-pointer lg:hidden rounded-full bg-gray-100 p-2 shadow-md hover:bg-gray-200 active:bg-gray-300 transition mb-2"
                     />
-                    <div className="card shadow-lg h-[97vh] w-full mx-auto rounded-lg border-solid border-1 border-slate-400 bg-white max-h-[97vh] overflow-y-auto">
+                    <div className="card shadow-lg h-[97vh] w-full mx-auto rounded-lg border-solid border-1 border-slate-400 bg-white max-h-[97vh] overflow-y-auto custom-scroll">
                         <div className="p-3">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                 {/* Card 1 */}
@@ -192,13 +196,19 @@ export default function Dashboard() {
 
                                     {/* Card 1: Bar Chart */}
                                     <div className="bg-white shadow-lg rounded-xl p-8 space-y-4">
-                                        <h2 className="text-2xl font-semibold text-gray-800">Tiffin Consumption Overview</h2>
-                                        <p className="text-sm text-gray-500">Your tiffin consumption over the past month. This helps you understand your daily usage trends.</p>
-
+                                        <h2 className="text-2xl font-semibold text-gray-800">
+                                            Tiffin Consumption Overview
+                                        </h2>
+                                        <p className="text-sm text-gray-500">
+                                            Your tiffin consumption over the past month. This helps you understand your daily usage trends.
+                                        </p>
                                         <div className="border-t-2 border-gray-200 pt-4">
-                                            <div className="text-xl font-bold text-gray-800">Total Consumption: 15 days</div>
-                                            <p className="text-sm text-gray-500">Average daily consumption: 0.5 meals/day</p>
-
+                                            <div className="text-xl font-bold text-gray-800">
+                                                Total Consumption: 15 days
+                                            </div>
+                                            <p className="text-sm text-gray-500">
+                                                Average daily consumption: 0.5 meals/day
+                                            </p>
                                             <div className="mt-6">
                                                 <BarChartComponent />
                                             </div>
@@ -288,6 +298,14 @@ export default function Dashboard() {
                     </div>
                 </div>
             </section>
+            <style jsx>{`
+                .custom-scroll {
+                    scrollbar-width: none; /* For Firefox */
+                }
+                .custom-scroll::-webkit-scrollbar {
+                    display: none; /* For Chrome, Safari, and Edge */
+                }`}
+            </style>
         </div>
     );
 }
