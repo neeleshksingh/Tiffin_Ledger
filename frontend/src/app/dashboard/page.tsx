@@ -8,6 +8,8 @@ import Image from 'next/image';
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { FaTachometerAlt, FaCog, FaBell, FaFileAlt } from "react-icons/fa";
+import BarChartComponent from "@components/components/barChart";
+import PieChartComponent from "@components/components/pieChart";
 
 export default function Dashboard() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -121,7 +123,7 @@ export default function Dashboard() {
                         onClick={() => setIsSidebarOpen(true)}
                         className="cursor-pointer lg:hidden"
                     />
-                    <div className="card shadow-lg h-[97vh] w-full mx-auto rounded-lg border-solid border-1 border-slate-400 bg-white">
+                    <div className="card shadow-lg h-[97vh] w-full mx-auto rounded-lg border-solid border-1 border-slate-400 bg-white max-h-[97vh] overflow-y-auto">
                         <div className="p-3">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                 {/* Card 1 */}
@@ -186,7 +188,42 @@ export default function Dashboard() {
 
                             </div>
                             <div className="space-y-8 mt-8">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-8">
+
+                                    {/* Card 1: Bar Chart */}
+                                    <div className="bg-white shadow-lg rounded-xl p-8 space-y-4">
+                                        <h2 className="text-2xl font-semibold text-gray-800">Tiffin Consumption Overview</h2>
+                                        <p className="text-sm text-gray-500">Your tiffin consumption over the past month. This helps you understand your daily usage trends.</p>
+
+                                        <div className="border-t-2 border-gray-200 pt-4">
+                                            <div className="text-xl font-bold text-gray-800">Total Consumption: 15 days</div>
+                                            <p className="text-sm text-gray-500">Average daily consumption: 0.5 meals/day</p>
+
+                                            <div className="mt-6">
+                                                <BarChartComponent />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Card 2: Pie Chart */}
+                                    <div className="bg-white shadow-lg rounded-xl p-8 space-y-4">
+                                        <h2 className="text-2xl font-semibold text-gray-800">Tiffin Type Distribution</h2>
+                                        <p className="text-sm text-gray-500">A breakdown of your tiffin types consumed during the past month.</p>
+
+                                        <div className="border-t-2 border-gray-200 pt-4">
+                                            <div className="text-xl font-bold text-gray-800">Tiffin Types Distribution</div>
+                                            <p className="text-sm text-gray-500">Percentage of Veggie vs. Non-Veg tiffins.</p>
+
+                                            <div className="mt-6">
+                                                <PieChartComponent />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-8">
+                                    {/* Card 3: Tiffin Usage History */}
                                     <div className="bg-white shadow-lg rounded-xl p-8 space-y-4">
                                         <h2 className="text-2xl font-semibold text-gray-800">Tiffin Usage History</h2>
                                         <p className="text-sm text-gray-500">Here’s a detailed look at your daily tiffin usage for this month.</p>
@@ -215,22 +252,7 @@ export default function Dashboard() {
                                         </div>
                                     </div>
 
-                                    <div className="bg-white shadow-lg rounded-xl p-8 space-y-4">
-                                        <h2 className="text-2xl font-semibold text-gray-800">Tiffin Preferences</h2>
-                                        <p className="text-sm text-gray-500">Here’s your feedback and preference summary based on your orders.</p>
-
-                                        <div className="border-t-2 border-gray-200 pt-4">
-                                            <div className="text-xl font-bold text-gray-800">Your Favorite Meal: Veggie Delight</div>
-                                            <p className="text-sm text-gray-500">You’ve rated this meal the highest so far.</p>
-                                            <div className="mt-4">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-gray-600">Rating:</span>
-                                                    <div className="text-yellow-500">★★★★☆</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
+                                    {/* Card 4: Recent Payments */}
                                     <div className="bg-white shadow-lg rounded-xl p-8 space-y-4">
                                         <h2 className="text-2xl font-semibold text-gray-800">Recent Payments</h2>
                                         <p className="text-sm text-gray-500">A breakdown of your recent transactions and payment history.</p>
@@ -259,19 +281,8 @@ export default function Dashboard() {
                                         </div>
                                     </div>
 
-                                    <div className="bg-white shadow-lg rounded-xl p-8 space-y-4">
-                                        <h2 className="text-2xl font-semibold text-gray-800">Promotions & Discounts</h2>
-                                        <p className="text-sm text-gray-500">Limited-time offers just for you. Save more on your next order!</p>
-
-                                        <div className="border-t-2 border-gray-200 pt-4">
-                                            <div className="text-xl font-bold text-gray-800">Get 10% Off</div>
-                                            <p className="text-sm text-gray-500">Use code "TIF10" on your next purchase to save 10%!</p>
-                                            <div className="mt-4">
-                                                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Apply Discount</button>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
+
                             </div>
                         </div>
                     </div>
