@@ -32,11 +32,13 @@ exports.getTrackingData = async (req, res) => {
     const query = { userId };
     if (month) query.month = month;
 
-    const tiffinTracking = await TiffinTracking.find(query);
+    const tiffinTracking = await TiffinTracking.find(query)
+      .populate('userId', 'name email')
+      .exec();
 
-    // if (!tiffinTracking || tiffinTracking.length === 0) {
-    //   return res.status(404).json({ message: 'No tracking data found' });
-    // }
+    if (!tiffinTracking || tiffinTracking.length === 0) {
+      return res.status(200).json({ message: 'For the given month no data found' });
+    }
 
     res.status(200).json({ data: tiffinTracking });
   } catch (error) {

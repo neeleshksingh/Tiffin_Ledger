@@ -2,10 +2,10 @@ const mongoose = require('mongoose');
 
 const tiffinTrackingSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  month: { type: String, required: true }, // Format: 'YYYY-MM'
+  month: { type: String, required: true },
   days: {
     type: Map,
-    of: Boolean, // Each day stores true/false
+    of: Boolean,
     required: true,
   },
 });
