@@ -1,5 +1,4 @@
-const puppeteer = require('puppeteer');
-const chrome = require('chrome-aws-lambda');
+const pdf = require('html-pdf');
 const ejs = require('ejs');
 const path = require('path');
 const User = require('../models/user');
@@ -13,13 +12,15 @@ const generateBillPDF = async (req, res) => {
     }
 
     try {
-        // Fetch user details
+        // Log input for debugging
+        console.log('User ID:', userId);
+        console.log('Date:', date);
+
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
 
-        // Generate a unique invoice number
         const uniqueCode = user._id.toString().slice(-4).toUpperCase();
         const invoiceNumber = `INV${uniqueCode}${Date.now()}`;
 
@@ -29,7 +30,6 @@ const generateBillPDF = async (req, res) => {
             address: user.address,
         };
 
-        // Fetch tiffin tracking data
         const tiffinTracking = await TiffinTracking.findOne({ userId });
         if (!tiffinTracking) {
             return res.status(404).json({ message: "Tiffin tracking data not found" });
@@ -60,7 +60,6 @@ const generateBillPDF = async (req, res) => {
         const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
         const gstAmount = (totalAmount * 18) / 100;
 
-        // Render HTML template
         const html = await ejs.renderFile(path.join(__dirname, "../views/bill-template.ejs"), {
             invoiceNumber,
             date,
@@ -70,28 +69,25 @@ const generateBillPDF = async (req, res) => {
             gstAmount,
         });
 
-        // Launch browser using chrome-aws-lambda's provided path to Chromium
-        const browser = await puppeteer.launch({
-            args: [...chrome.args, '--no-sandbox', '--disable-setuid-sandbox'],
-            executablePath: await chrome.executablePath,  // Automatically fetches the correct path in serverless environments
-            headless: chrome.headless,
+        // Log generated HTML for debugging
+        console.log(html);
+
+        pdf.create(html).toBuffer((err, buffer) => {
+            if (err) {
+                console.error('PDF Generation Error:', err);
+                return res.status(500).json({ message: "Error generating PDF" });
+            }
+
+            res.setHeader("Content-Type", "application/pdf");
+            res.setHeader("Content-Disposition", 'attachment; filename="bill.pdf"');
+            res.send(buffer);
         });
-        
-
-        const page = await browser.newPage();
-        await page.setContent(html);
-        const buffer = await page.pdf({ format: 'A4' });
-        await browser.close();
-
-        // Send PDF as response
-        res.setHeader("Content-Type", "application/pdf");
-        res.setHeader("Content-Disposition", 'attachment; filename="bill.pdf"');
-        res.send(buffer);
-
     } catch (error) {
-        console.error("Error generating PDF:", error);
-        return res.status(500).json({ message: "Error generating PDF" });
+        console.error('Server Error:', error);
+        return res.status(500).json({ message: "Server error" });
     }
 };
 
-module.exports = { generateBillPDF };
+module.exports = {
+    generateBillPDF,
+};

@@ -11,7 +11,6 @@
   "description": "",
   "dependencies": {
     "bcrypt": "^5.1.1",
-    "chrome-aws-lambda": "^10.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "ejs": "^3.1.10",
@@ -22,8 +21,6 @@
     "mongoose": "^8.9.5",
     "nodemon": "^3.1.9",
     "pdfkit": "^0.16.0",
-    "phantomjs-prebuilt": "^2.1.16",
-    "puppeteer": "^24.1.0",
-    "puppeteer-core": "^24.1.0"
+    "phantomjs-prebuilt": "^2.1.16"
   }
 }
