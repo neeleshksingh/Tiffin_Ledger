@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { updateTracking, getTrackingData } = require('../controllers/tiffin-tracking.controller');
-const {generateBillPDF} = require('../controllers/bill.contoller');
+const {generateBillPDF} = require('../controllers/bill.controller');
 const { authenticateToken } = require('../middlewares/auth.middleware');
 const validateRequest = require('../middlewares/validate-request.middleware');
 
