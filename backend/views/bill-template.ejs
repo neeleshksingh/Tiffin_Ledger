@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice - <%= invoiceNumber %>
+    </title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            padding: 0;
+            font-size: 14px;
+            /* Adjusted font size */
+        }
+
+        .header,
+        .footer {
+            text-align: center;
+        }
+
+        .header h1,
+        .footer p {
+            margin: 0;
+            padding: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #000;
+        }
+
+        th,
+        td {
+            padding: 8px;
+            /* Adjusted padding */
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        .summary {
+            margin-top: 20px;
+        }
+
+        h1,
+        h3,
+        h4 {
+            font-size: 16px;
+            /* Adjusted font size for headers */
+        }
+
+        p {
+            font-size: 12px;
+            /* Adjusted font size for paragraphs */
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>Tiffin Solutions</h1>
+        <p>GSTIN: 27AAAAA1234A1Z5</p>
+        <p>Address: Plot 123, Industrial Area, City</p>
+    </div>
+
+    <div>
+        <h3>Invoice: <%= invoiceNumber %> | Date: <%= date %>
+        </h3>
+        <h4>Billing & Shipping Information:</h4>
+        <p>Name: <%= billingInfo.name %> | GSTIN: <%= billingInfo.gstin %> | Address: <%= billingInfo.address %>
+        </p>
+    </div>
+
+    <div>
+        <h4>Itemized Details</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>S.No.</th>
+                    <th>Item Description</th>
+                    <th>Qty</th>
+                    <th>Rate (₹)</th>
+                    <th>Amount (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% items.forEach(function(item, index) { %>
+                    <tr>
+                        <td>
+                            <%= index + 1 %>
+                        </td>
+                        <td>
+                            <%= item.name %>
+                        </td>
+                        <td>
+                            <%= item.quantity %>
+                        </td>
+                        <td>
+                            <%= item.price %>
+                        </td>
+                        <td>
+                            <%= item.amount %>
+                        </td>
+                    </tr>
+                    <% }); %>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="summary">
+        <h4>Summary</h4>
+        <p>Total Amount (Excl. GST): ₹<%= totalAmount %>
+        </p>
+        <p>GST Amount (₹): ₹<%= gstAmount %>
+        </p>
+        <p>Total Amount (Incl. GST): ₹<%= totalAmount + gstAmount %>
+        </p>
+    </div>
+
+    <div class="footer">
+        <p>Payment Terms: Payment due within 15 days of issue date.</p>
+        <p>Thank you for doing business with us!</p>
+    </div>
+
+</body>
+</html>

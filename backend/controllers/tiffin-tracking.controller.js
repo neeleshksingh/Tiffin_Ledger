@@ -1,4 +1,4 @@
-const TiffinTracking = require('../models/tiffin-tacking');
+const TiffinTracking = require('../models/tiffin-tracking');
 
 exports.updateTracking = async (req, res) => {
   const { userId, month, days } = req.body;
