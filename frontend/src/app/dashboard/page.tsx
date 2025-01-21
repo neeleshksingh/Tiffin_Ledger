@@ -89,18 +89,19 @@ export default function Landing() {
                     </div>
 
                     {/* Card 2 */}
-                    <div className="bg-[#F5F5FF] shadow-xl rounded-xl p-6 cursor-pointer transform hover:scale-105 transition-all duration-300 ease-in-out">
+                    <div className="bg-[#F5F5FF] shadow-xl rounded-xl p-6 cursor-pointer transform hover:scale-105 transition-all duration-300 ease-in-out"
+                        onClick={() => nav.push("/dashboard/vendor-view/" + tiffinData?.vendor?.id)}>
                         <div className="flex items-center space-x-4 mb-4">
                             <div className="h-12 w-12 bg-purple-200 rounded-full flex items-center justify-center">
                                 <svg className="h-8 w-8 text-[#5C6BC0]" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg>
                             </div>
                             <div>
-                                <h3 className="text-xl font-semibold text-gray-800 font-poppins">Tiffin Subscription Summary</h3>
-                                <p className="text-sm text-gray-500 font-roboto">Overview of your subscription plan</p>
+                                <h3 className="text-xl font-semibold text-gray-800 font-poppins">{tiffinData?.vendor?.shopName}</h3>
+                                <p className="text-sm text-gray-500 font-roboto">View your vendor details</p>
                             </div>
                         </div>
-                        <div className="text-xl font-bold text-gray-800 font-poppins">Monthly Plan</div>
-                        <p className="text-sm text-gray-500 font-roboto">Active until: 25th January 2025</p>
+                        <div className="text-xl font-bold text-gray-800 font-poppins">Per Day Charge</div>
+                        <p className="text-sm text-gray-500 font-roboto"> ₹ {tiffinData?.vendor?.amountPerDay}</p>
                     </div>
 
                     {/* Card 3 */}

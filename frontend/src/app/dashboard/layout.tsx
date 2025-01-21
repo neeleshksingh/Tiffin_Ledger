@@ -11,6 +11,7 @@ import { FaTachometerAlt, FaCog, FaBell, FaFileAlt, FaCalendarAlt } from "react-
 import Timetable from "./timetable/page";
 import Link from "next/link";
 import Landing from "./page";
+import VendorView from "./vendor-view/[id]/page";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -19,10 +20,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    const components: { [key: string]: JSX.Element } = {
-        "/dashboard": <Landing />,
-        "/dashboard/timetable": <Timetable />,
+    const getComponentForRoute = () => {
+        if (pathname === "/dashboard") return <Landing />;
+        if (pathname === "/dashboard/timetable") return <Timetable />;
+        
+        // Match dynamic route for VendorView
+        if (pathname.startsWith("/dashboard/vendor-view/")) {
+            const id = pathname.split("/").pop(); // Extract ID from the route
+            return <VendorView id={id || ""} />; // Pass the ID as a prop to VendorView
+        }
+    
+        return <div>Page not found</div>;
     };
+    
 
 
     useEffect(() => {
@@ -153,7 +163,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                         className="cursor-pointer lg:hidden rounded-full bg-gray-100 p-2 shadow-md hover:bg-gray-200 active:bg-gray-300 transition mb-2"
                     />
                     <div className="card shadow-lg h-[97vh] w-full mx-auto rounded-lg border-solid border-1 border-slate-400 bg-gray-100 max-h-[97vh] overflow-y-auto custom-scroll">
-                        {components[pathname] || <div>Page not found</div>}
+                        {getComponentForRoute()}
                     </div>
                     <style jsx>{`
                         .custom-scroll {
