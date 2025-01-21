@@ -62,4 +62,77 @@ const createVendor = async (req, res) => {
     }
 };
 
-module.exports = { getVendors, assignVendorToUser, createVendor };
+const updateVendorById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+
+        const updatedVendor = await Vendor.findByIdAndUpdate(id, updates, { new: true });
+        if (!updatedVendor) {
+            return res.status(404).json({ message: 'Vendor not found' });
+        }
+
+        res.status(200).json({ message: 'Vendor updated successfully', vendor: updatedVendor });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+const deleteVendorById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const deletedVendor = await Vendor.findByIdAndDelete(id);
+        if (!deletedVendor) {
+            return res.status(404).json({ message: 'Vendor not found' });
+        }
+
+        res.status(200).json({ message: 'Vendor deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+const addMultipleVendors = async (req, res) => {
+    try {
+        const vendors = req.body;
+
+        if (!Array.isArray(vendors) || vendors.length === 0) {
+            return res.status(400).json({ message: 'Invalid vendor data' });
+        }
+
+        const createdVendors = await Vendor.insertMany(vendors);
+        res.status(201).json({ message: 'Vendors added successfully', vendors: createdVendors });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+const deleteMultipleVendors = async (req, res) => {
+    try {
+        const { ids } = req.body;
+
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: 'Invalid vendor IDs' });
+        }
+
+        const result = await Vendor.deleteMany({ _id: { $in: ids } });
+        res.status(200).json({ message: 'Vendors deleted successfully', deletedCount: result.deletedCount });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+module.exports = {
+    getVendors,
+    assignVendorToUser,
+    createVendor,
+    updateVendorById,
+    deleteVendorById,
+    addMultipleVendors,
+    deleteMultipleVendors
+};

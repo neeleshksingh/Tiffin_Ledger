@@ -69,6 +69,7 @@ const getUserTiffinAndBilling = async (req, res) => {
                 billAmount: billAmount,
                 invoiceNumber: invoiceNumber,
                 vendor: {
+                    id: vendor._id,
                     shopName: vendor.shopName,
                     address: vendor.address,
                     contactNumber: vendor.contactNumber,
