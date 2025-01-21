@@ -1,6 +1,7 @@
 const PDFDocument = require('pdfkit');
 const User = require('../models/user');
 const TiffinTracking = require('../models/tiffin-tracking');
+const Vendor = require('../models/vendor');
 
 const generateBillPDF = async (req, res) => {
     const { userId, date } = req.body;
@@ -10,7 +11,8 @@ const generateBillPDF = async (req, res) => {
     }
 
     try {
-        const user = await User.findById(userId);
+        // Fetch user and vendor (mess) details
+        const user = await User.findById(userId).populate('messId');
         const tiffinTracking = await TiffinTracking.findOne({ userId });
 
         if (!user || !tiffinTracking) {
@@ -20,10 +22,17 @@ const generateBillPDF = async (req, res) => {
         const uniqueCode = user._id.toString().slice(-4).toUpperCase();
         const invoiceNumber = `INV${uniqueCode}${Date.now()}`;
 
+        // Fetch vendor (mess) details associated with the user
+        const vendor = user.messId;
+        if (!vendor) {
+            return res.status(404).json({ message: "No vendor associated with this user" });
+        }
+
         const billingInfo = {
             name: user.name,
-            gstin: user.gstin,
-            address: user.address,
+            gstin: vendor.gstNumber,
+            address: vendor.address,
+            shopName: vendor.shopName
         };
 
         const datesTaken = [];
@@ -46,7 +55,7 @@ const generateBillPDF = async (req, res) => {
             .sort((a, b) => a - b);
 
         const items = sortedDates.map((dateTaken) => {
-            const price = 50;
+            const price = vendor.amountPerDay;
             const amount = price * 1;
             return {
                 name: `Tiffin on ${dateTaken}`,
@@ -57,7 +66,10 @@ const generateBillPDF = async (req, res) => {
         });
 
         const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
-        const gstAmount = (totalAmount * 18) / 100;
+
+        // Default GST rate is 18% if not provided by vendor
+        const gstRate = vendor.gstRate || 18;
+        const gstAmount = (totalAmount * gstRate) / 100;
         const grandTotal = totalAmount + gstAmount;
 
         // Create a PDF document
@@ -79,9 +91,10 @@ const generateBillPDF = async (req, res) => {
 
         // Billing Information
         doc.fontSize(12).font('Helvetica-Bold').text('Billing Information:', { underline: true });
-        doc.fontSize(12).font('Helvetica').text(`Name: ${billingInfo.name}`);
+        doc.fontSize(12).font('Helvetica').text(`Customer Name: ${billingInfo.name}`);
         doc.text(`GSTIN: ${billingInfo.gstin}`);
-        doc.text(`Address: ${billingInfo.address}`);
+        doc.text(`Shop Address: ${billingInfo.address}`);
+        doc.text(`Shop Name: ${billingInfo.shopName}`);
 
         doc.moveDown(2);
 
@@ -108,7 +121,7 @@ const generateBillPDF = async (req, res) => {
         // Draw the totals
         doc.moveDown(1);
         doc.fontSize(12).font('Helvetica-Bold').text(`Total Amount: ${totalAmount}`, headerX, yPosition + 20);
-        doc.text(`GST (18%): ${gstAmount}`, headerX, yPosition + 40);
+        doc.text(`GST (${gstRate}%): ${gstAmount}`, headerX, yPosition + 40);
         doc.text(`Grand Total: ${grandTotal}`, headerX, yPosition + 60);
 
         // Footer section
