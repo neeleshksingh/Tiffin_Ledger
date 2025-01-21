@@ -37,7 +37,7 @@ export default function Login (){
             Cookies.set('token', token, { secure: true, httpOnly: false });
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             toast({
-                // variant: "success",
+                variant: "success",
                 title: `Welcome, ${response.data.user.name}`,
             });
             nav.push('/dashboard')
@@ -45,7 +45,7 @@ export default function Login (){
         } catch (err : any) {
             setError('Invalid email or password');
             toast({
-                // variant: "error",
+                variant: "error",
                 title: err.response.data.message,
             });
         } finally {

@@ -44,6 +44,10 @@ export default function Timetable() {
                     setMonthDays(daysData);
                 } else {
                     console.warn("No data found for the current month");
+                    toast({
+                        variant: "warning",
+                        title: `No data found for this ${formattedMonth} month`,
+                    });
                     setMonthDays({});
                     setPayableDays(0);
                     setTotalAmount(0);
@@ -53,6 +57,10 @@ export default function Timetable() {
             }
         } catch (error) {
             console.error("Error fetching month data:", error);
+            toast({
+                // variant: "error",
+                title: `Error fetching month data: ${error}`,
+            });
             setMonthDays({});
             setPayableDays(0);
             setTotalAmount(0);
@@ -101,6 +109,10 @@ export default function Timetable() {
             }
         } catch (error) {
             console.error("Error updating date:", error);
+            toast({
+                // variant: "error",
+                title: `Error updating date: ${error}`,
+            })
         }
     };
 
@@ -128,14 +140,18 @@ export default function Timetable() {
                 link.download = 'bill.pdf';
                 link.click();
                 toast({
-                    // variant: "success",
+                    variant: "success",
                     title: `Receipt generated successfully`,
                 });
             } else {
                 nav.push("/login");
             }
-        } catch (error) {
+        } catch (error:any) {
             console.error("Error generating PDF:", error);
+            toast({
+                variant: "error",
+                title: `Error generating PDF: ${error}`,
+            });
         }
     };
 
@@ -152,7 +168,7 @@ export default function Timetable() {
     };
 
     return (
-        <div className="p-6 space-y-8 bg-gray-100 min-h-screen">
+        <div className="p-3 space-y-8 bg-gray-100">
             <h1 className="text-2xl font-bold text-gray-800">Tiffin Timetable</h1>
 
             {/* Calendar and Billing Section */}
@@ -160,29 +176,31 @@ export default function Timetable() {
                 {/* Calendar Section */}
                 <div className="bg-white shadow-md rounded-lg p-6">
                     <h2 className="text-lg font-semibold text-gray-700 mb-4">Attendance Calendar</h2>
-                    <DayPicker
-                        mode="single"
-                        selected={date}
-                        onDayClick={(day) => {
-                            setDate(day);
-                            handleDayClick(day);
-                        }}
-                        onMonthChange={handleMonthChange}
-                        modifiersClassNames={{
-                            greenDay: "bg-green-400 text-white",
-                            redDay: "bg-red-400 text-white",
-                        }}
-                        modifiers={{
-                            greenDay: (day) => getDayStatus(day) === true,
-                            redDay: (day) => getDayStatus(day) === false,
-                        }}
-                        className="w-full text-sm"
-                        styles={{
-                            caption: { fontSize: "1rem", textAlign: "center", marginBottom: "1rem" },
-                            day: { height: "2.5rem", width: "2.5rem" },
-                            month: { padding: "1rem" },
-                        }}
-                    />
+                    <div className="w-full overflow-x-auto">
+                        <DayPicker
+                            mode="single"
+                            selected={date}
+                            onDayClick={(day) => {
+                                setDate(day);
+                                handleDayClick(day);
+                            }}
+                            onMonthChange={handleMonthChange}
+                            modifiersClassNames={{
+                                greenDay: "bg-green-400 text-white",
+                                redDay: "bg-red-400 text-white",
+                            }}
+                            modifiers={{
+                                greenDay: (day) => getDayStatus(day) === true,
+                                redDay: (day) => getDayStatus(day) === false,
+                            }}
+                            className="w-full sm:w-80 md:w-96 lg:w-full text-sm"
+                            styles={{
+                                caption: { fontSize: "1rem", textAlign: "center", marginBottom: "1rem" },
+                                day: { height: "2.5rem", width: "2.5rem" },
+                                month: { padding: "1rem" },
+                            }}
+                        />
+                    </div>
                 </div>
 
                 {/* Billing Section */}

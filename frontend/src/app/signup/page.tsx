@@ -30,7 +30,7 @@ export default function SignUp (){
             setLoading(true);
             const response = await axios.post(`${process.env.NEXT_PUBLIC_API_ENDPOINT}/user/signup`, data);
             toast({
-                // variant: "success",
+                variant: "success",
                 title: "Signup successful",
             });
             nav.push('/login')
@@ -38,7 +38,7 @@ export default function SignUp (){
         } catch (err : any) {
             setError('Invalid email or password');
             toast({
-                // variant: "error",
+                variant: "error",
                 title: err.response.data.message,
             });
         } finally {
