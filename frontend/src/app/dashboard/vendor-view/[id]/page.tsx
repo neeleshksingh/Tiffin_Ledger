@@ -4,18 +4,34 @@ import React, { useEffect, useState } from "react";
 import axiosInstance from "@components/interceptors/axios.interceptor";
 import { useToast } from "@components/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { FaMapMarkerAlt, FaPhoneAlt, FaRegBuilding } from "react-icons/fa"; // For icons
+import { FaMapMarkerAlt, FaPhoneAlt, FaRegBuilding } from "react-icons/fa";
 import Image from "next/image";
 import cooking from "../../../../../public/assets/cooking.png";
 
-interface VendorViewProps {
-  id: string;
+interface VendorData {
+  name: string;
+  shopName: string;
+  address: string;
+  contactNumber: string;
+  amountPerDay: number;
+  billingInfo?: {
+    name: string;
+    gstin: string;
+    address: string;
+  };
 }
 
-const VendorView: React.FC<VendorViewProps> = ({ id }) => {
-  const [data, setData] = useState<any>(null);
+interface PageProps {
+  params: Promise<{
+    id: string;
+  }>;
+}
+
+export default function VendorViewPage({ params }: PageProps) {
+  const [data, setData] = useState<VendorData | null>(null);
   const { toast } = useToast();
   const nav = useRouter();
+  const resolvedParams = React.use(params);
 
   useEffect(() => {
     const getVendorData = async () => {
@@ -25,11 +41,9 @@ const VendorView: React.FC<VendorViewProps> = ({ id }) => {
           const parsedUser = JSON.parse(user);
           const userId = parsedUser._id;
 
-          const response = await axiosInstance.get(`/tiffin/vendors/${id}`);
+          const response = await axiosInstance.get(`/tiffin/vendors/${resolvedParams.id}`);
           console.log("Vendor Data:", response.data);
-          const data = response.data;
-
-          setData(data);
+          setData(response.data);
         } else {
           nav.push("/login");
         }
@@ -52,7 +66,7 @@ const VendorView: React.FC<VendorViewProps> = ({ id }) => {
     };
 
     getVendorData();
-  }, [id]);
+  }, [resolvedParams.id, nav, toast]);
 
   return (
     <div className="p-3 space-y-8 bg-gray-100">
@@ -114,6 +128,4 @@ const VendorView: React.FC<VendorViewProps> = ({ id }) => {
       )}
     </div>
   );
-};
-
-export default VendorView;
+}

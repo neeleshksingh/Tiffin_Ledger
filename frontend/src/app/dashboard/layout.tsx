@@ -24,15 +24,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         if (pathname === "/dashboard") return <Landing />;
         if (pathname === "/dashboard/timetable") return <Timetable />;
         
-        // Match dynamic route for VendorView
-        if (pathname.startsWith("/dashboard/vendor-view/")) {
-            const id = pathname.split("/").pop(); // Extract ID from the route
-            if (id) {
-              return <VendorView id={id} />; // Pass the ID as a prop to VendorView
-            }
-          }
-        
-          return <div>Page not found</div>;
+       return children;
     };
     
 
