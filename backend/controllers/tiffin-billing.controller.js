@@ -49,7 +49,7 @@ const getUserTiffinAndBilling = async (req, res) => {
         const monthlyData = await Promise.all(tiffinData.map(async (tiffin) => {
             const month = tiffin.month;
 
-            let tiffinDaysCount = Object.values(tiffin.days).filter(Boolean).length;
+            let tiffinDaysCount = Array.from(tiffin.days.values()).filter(Boolean).length;
             const totalAmount = calculateTotalAmount(tiffinDaysCount, vendor.amountPerDay);
 
             const invoiceNumber = await generateInvoiceNumber();
