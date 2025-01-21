@@ -127,6 +127,22 @@ const deleteMultipleVendors = async (req, res) => {
     }
 };
 
+const getVendorById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const vendor = await Vendor.findById(id);
+        if (!vendor) {
+            return res.status(404).json({ message: 'Vendor not found' });
+        }
+
+        res.status(200).json(vendor);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
 module.exports = {
     getVendors,
     assignVendorToUser,
@@ -134,5 +150,6 @@ module.exports = {
     updateVendorById,
     deleteVendorById,
     addMultipleVendors,
-    deleteMultipleVendors
+    deleteMultipleVendors,
+    getVendorById
 };

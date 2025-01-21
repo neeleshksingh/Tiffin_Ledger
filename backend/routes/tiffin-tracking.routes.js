@@ -5,7 +5,7 @@ const { generateBillPDF } = require('../controllers/bill.controller');
 const { authenticateToken } = require('../middlewares/auth.middleware');
 const { getUserTiffinAndBilling } = require('../controllers/tiffin-billing.controller');
 const validateRequest = require('../middlewares/validate-request.middleware');
-const { getVendors, assignVendorToUser, createVendor, updateVendorById, deleteVendorById, deleteMultipleVendors, addMultipleVendors } = require('../controllers/vendor.controller');
+const { getVendors, assignVendorToUser, createVendor, updateVendorById, deleteVendorById, deleteMultipleVendors, addMultipleVendors, getVendorById } = require('../controllers/vendor.controller');
 
 // Update tracking data
 router.post('/track/add', authenticateToken, validateRequest, updateTracking);
@@ -21,6 +21,8 @@ router.get("/tiffin-bill/:userId", authenticateToken, getUserTiffinAndBilling);
 
 // Route to get available vendors (for UI)
 router.get('/vendors', getVendors);
+
+router.get('/vendors/:id', getVendorById); 
 
 // Route to assign vendor to user
 router.post('/assign-vendor', assignVendorToUser);
