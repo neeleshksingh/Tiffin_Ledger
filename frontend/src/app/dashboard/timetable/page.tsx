@@ -143,7 +143,7 @@ export default function Timetable() {
             } else {
                 nav.push("/login");
             }
-        } catch (error:any) {
+        } catch (error: any) {
             console.error("Error generating PDF:", error);
             toast({
                 variant: "error",
@@ -179,7 +179,16 @@ export default function Timetable() {
                 const link = response.data?.paymentLink || null;
                 console.log(link);
                 if (link) {
-                    window.location.href = link;
+                    const startTime = new Date().getTime();
+                    nav.push(`/payment-fallback?paymentLink=${encodeURIComponent(link)}&totalAmount=${encodeURIComponent(totalAmount)}`);
+
+                    setTimeout(() => {
+                        const endTime = new Date().getTime();
+                        const timeTaken = endTime - startTime;
+                        if (timeTaken < 1000) {
+                            window.location.href = `/payment-fallback?paymentLink=${encodeURIComponent(link)}&totalAmount=${encodeURIComponent(totalAmount)}`;
+                        }
+                    }, 800);
                 } else {
                     toast({
                         variant: "error",
