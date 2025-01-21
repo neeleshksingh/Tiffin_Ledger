@@ -9,7 +9,7 @@ const generateUPIPaymentLink = (req, res) => {
         });
     }
 
-    const upiLink = `upi://pay?pa=${UPI_ID}&pn=Your%20Business%20Name&mc=0000&tid=${orderId}&tr=${orderId}&tn=Payment%20for%20Order%20${orderId}&am=${amount}&cu=INR`;
+    const upiLink = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=Your%20Business%20Name&mc=0000&tid=${encodeURIComponent(orderId)}&tr=${encodeURIComponent(orderId)}&tn=${encodeURIComponent(`Payment for Order ${orderId}`)}&am=${encodeURIComponent(amount)}&cu=INR`;
 
     return res.json({
         paymentLink: upiLink
