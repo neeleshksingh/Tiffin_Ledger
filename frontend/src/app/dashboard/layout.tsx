@@ -11,7 +11,7 @@ import { FaTachometerAlt, FaCog, FaBell, FaFileAlt, FaCalendarAlt } from "react-
 import Timetable from "./timetable/page";
 import Link from "next/link";
 import Landing from "./page";
-import {VendorView} from "./vendor-view/[id]/page";
+import { VendorView } from "@components/app/dashboard/vendor-view/[id]/page";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
