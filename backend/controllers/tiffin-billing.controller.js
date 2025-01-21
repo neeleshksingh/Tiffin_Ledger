@@ -46,17 +46,21 @@ const getUserTiffinAndBilling = async (req, res) => {
 
         const bills = await Bill.find({ userId }).sort({ createdAt: -1 });
 
-        // Group data by month and add it to an array
         const monthlyData = await Promise.all(tiffinData.map(async (tiffin) => {
             const month = tiffin.month;
 
-            let tiffinDaysCount = Array.from(tiffin.days.values()).filter(Boolean).length;
+            let tiffinDaysCount = Object.values(tiffin.days).filter(Boolean).length;
             const totalAmount = calculateTotalAmount(tiffinDaysCount, vendor.amountPerDay);
 
             const invoiceNumber = await generateInvoiceNumber();
 
             const bill = bills.find(bill => bill.month === month);
             const billAmount = bill ? bill.totalAmount : totalAmount;
+
+            const allDays = Object.keys(tiffin.days).map(day => ({
+                date: day,
+                isTaken: tiffin.days[day]
+            }));
 
             return {
                 month: month,
@@ -71,7 +75,8 @@ const getUserTiffinAndBilling = async (req, res) => {
                     gstNumber: vendor.gstNumber,
                     amountPerDay: vendor.amountPerDay,
                     billingInfo: vendor.billingInfo,
-                }
+                },
+                days: allDays
             };
         }));
 
