@@ -31,9 +31,6 @@ export default function Timetable() {
 
                 const response = await axiosInstance.get(`/tiffin/track/get?userId=${userId}&month=${formattedMonth}`);
 
-                // Debug the response
-                console.log("API Response:", response.data);
-
                 const data = response.data?.data?.[0] || null;
 
                 if (data) {
@@ -58,7 +55,7 @@ export default function Timetable() {
         } catch (error) {
             console.error("Error fetching month data:", error);
             toast({
-                // variant: "error",
+                variant: "error",
                 title: `Error fetching month data: ${error}`,
             });
             setMonthDays({});
@@ -110,7 +107,7 @@ export default function Timetable() {
         } catch (error) {
             console.error("Error updating date:", error);
             toast({
-                // variant: "error",
+                variant: "error",
                 title: `Error updating date: ${error}`,
             })
         }
@@ -155,8 +152,6 @@ export default function Timetable() {
         }
     };
 
-
-
     const handleMonthChange = (newMonth: any) => {
         setCurrentMonth(newMonth);
         setMonthDays({});
@@ -166,6 +161,36 @@ export default function Timetable() {
         const dayNumber = String(day.getDate()).padStart(2, "0");
         return monthDays[dayNumber];
     };
+
+    const generatePayment = async () => {
+        try {
+            const user = localStorage.getItem("user");
+            if (user) {
+                const payload = {
+                    amount: totalAmount,
+                    orderId: 123456,
+                };
+
+                const response = await axiosInstance.post(
+                    `/payment/generate-upi-payment-link`,
+                    payload
+                );
+                const link = response.data?.data?.paymentLink || null;
+                toast({
+                    variant: "success",
+                    title: `Receipt generated successfully`,
+                });
+            } else {
+                nav.push("/login");
+            }
+        } catch (error) {
+            console.error("Error generating payment:", error);
+            toast({
+                variant: "error",
+                title: `Error generating payment: ${error}`,
+            });
+        }
+    }
 
     return (
         <div className="p-3 space-y-8 bg-gray-100">
@@ -222,7 +247,7 @@ export default function Timetable() {
                     </div>
                     <button
                         className="w-full bg-green-500 text-white py-2 px-4 rounded-md shadow-lg hover:bg-green-600 transition-all"
-                        onClick={() => alert("Payment gateway integration coming soon!")}
+                        onClick={generatePayment}
                     >
                         Pay Now
                     </button>

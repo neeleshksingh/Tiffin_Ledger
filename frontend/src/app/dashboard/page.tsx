@@ -2,24 +2,89 @@
 
 import BarChartComponent from "@components/components/barChart";
 import PieChartComponent from "@components/components/pieChart";
+import { useToast } from "@components/hooks/use-toast";
+import axiosInstance from "@components/interceptors/axios.interceptor";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function Landing() {
+    const [tiffinData, setTiffinData] = useState<any>(null);
+    const { toast } = useToast();
+    const nav = useRouter();
+    const [transformedDays, setTransformedDays] = useState<any>([]);
+
+    const transformDaysData = (tiffinData:any) => {
+        if (tiffinData && tiffinData.days && tiffinData.days[0] && tiffinData.days[0].isTaken) {
+            const days = tiffinData.days[0].isTaken.days;
+            return Object.keys(days).map(day => ({
+                name: day,
+                isTaken: days[day]
+            }));
+        }
+        return [];
+    };
+    
+    const fetchTiffinData = async () => {
+        try {
+            const user = localStorage.getItem("user");
+            if (user) {
+                const parsedUser = JSON.parse(user);
+                const userId = parsedUser._id;
+                const response = await axiosInstance.get(`/tiffin/tiffin-bill/${userId}`);
+                const currentMonth = new Date().toISOString().slice(0, 7);
+                const currentMonthData = response.data?.find((item:any) => item.month === currentMonth) || null;
+    
+                if (currentMonthData) {
+                    const transformedDays = transformDaysData(currentMonthData);
+    
+                    setTransformedDays(transformedDays);
+
+                    setTiffinData({
+                        ...currentMonthData,
+                        days: transformedDays
+                    });
+
+                } else {
+                    console.warn("No data found for the current month");
+                    toast({
+                        variant: "warning",
+                        title: `No data found for this month`,
+                    });
+                }
+            } else {
+                nav.push("/login");
+            }
+        } catch (error) {
+            console.error("Error fetching month data:", error);
+            toast({
+                variant: "error",
+                title: `Error fetching month data: ${error}`,
+            });
+        }
+    };
+    
+
+    useEffect(() => {
+        fetchTiffinData();
+    }, []);
+
     return (
         <>
             <div className="p-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Card 1 */}
-                    <div className="bg-[#E8F8F5] shadow-xl rounded-xl p-6 cursor-pointer transform hover:scale-105 transition-all duration-300 ease-in-out">
+                    <div className="bg-[#E8F8F5] shadow-xl rounded-xl p-6 cursor-pointer transform hover:scale-105 transition-all duration-300 ease-in-out"
+                        onClick={() => nav.push("/dashboard/timetable")}>
                         <div className="flex items-center space-x-4 mb-4">
                             <div className="h-12 w-12 bg-teal-200 rounded-full flex items-center justify-center">
                                 <svg className="h-8 w-8 text-[#1D9B8B]" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg>
                             </div>
                             <div>
                                 <h3 className="text-xl font-semibold text-gray-800 font-poppins">Tiffin days this month</h3>
-                                <p className="text-sm text-gray-500 font-roboto">You have had tiffin for 15 days</p>
+                                <p className="text-sm text-gray-500 font-roboto">You have had tiffin for {tiffinData?.tiffinDays} days</p>
                             </div>
                         </div>
-                        <div className="text-xl font-bold text-gray-800 font-poppins">$300</div>
+                        <div className="text-xl font-bold text-gray-800 font-poppins"> ₹ {tiffinData?.billAmount}</div>
                         <p className="text-sm text-gray-500 font-roboto">Total billing this month</p>
                     </div>
 
@@ -88,7 +153,7 @@ export default function Landing() {
                                     Average daily consumption: 0.5 meals/day
                                 </p>
                                 <div className="mt-6">
-                                    <BarChartComponent />
+                                    <BarChartComponent data={transformedDays || []}/>
                                 </div>
                             </div>
                         </div>
