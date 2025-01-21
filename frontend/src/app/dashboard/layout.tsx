@@ -11,7 +11,7 @@ import { FaTachometerAlt, FaCog, FaBell, FaFileAlt, FaCalendarAlt } from "react-
 import Timetable from "./timetable/page";
 import Link from "next/link";
 import Landing from "./page";
-import VendorView from "./vendor-view/[id]/page";
+import {VendorView} from "./vendor-view/[id]/page";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -27,10 +27,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         // Match dynamic route for VendorView
         if (pathname.startsWith("/dashboard/vendor-view/")) {
             const id = pathname.split("/").pop(); // Extract ID from the route
-            return <VendorView id={id || ""} />; // Pass the ID as a prop to VendorView
-        }
-    
-        return <div>Page not found</div>;
+            if (id) {
+              return <VendorView id={id} />; // Pass the ID as a prop to VendorView
+            }
+          }
+        
+          return <div>Page not found</div>;
     };
     
 
