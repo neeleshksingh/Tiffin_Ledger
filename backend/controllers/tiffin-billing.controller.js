@@ -34,45 +34,48 @@ const getUserTiffinAndBilling = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const currentMonth = new Date().toISOString().slice(0, 7);
-
-        const tiffinData = await TiffinTracking.findOne({ userId, month: currentMonth });
-
-        if (!tiffinData) {
-            return res.status(404).json({ message: 'No tiffin tracking data found for this month' });
-        }
-
-        let tiffinDaysCount = Array.from(tiffinData.days.values()).filter(Boolean).length;
-
         const vendor = user.messId;
         if (!vendor) {
             return res.status(404).json({ message: 'No vendor associated with this user' });
         }
 
-        const totalAmount = calculateTotalAmount(tiffinDaysCount, vendor.amountPerDay);
+        const tiffinData = await TiffinTracking.find({ userId });
+        if (!tiffinData || tiffinData.length === 0) {
+            return res.status(404).json({ message: 'No tiffin tracking data found for this user' });
+        }
 
-        const invoiceNumber = await generateInvoiceNumber();
+        const bills = await Bill.find({ userId }).sort({ createdAt: -1 });
 
-        const bill = await Bill.findOne({ userId }).sort({ createdAt: -1 }).limit(1);
+        // Group data by month and add it to an array
+        const monthlyData = await Promise.all(tiffinData.map(async (tiffin) => {
+            const month = tiffin.month;
 
-        const responseData = {
-            userName: user.name,
-            tiffinDays: tiffinDaysCount,
-            totalAmount,
-            billAmount: bill ? bill.totalAmount : totalAmount,
-            month: currentMonth,
-            invoiceNumber: invoiceNumber,
-            vendor: {
-                shopName: vendor.shopName,
-                address: vendor.address,
-                contactNumber: vendor.contactNumber,
-                gstNumber: vendor.gstNumber,
-                amountPerDay: vendor.amountPerDay,
-                billingInfo: vendor.billingInfo,
-            },
-        };
+            let tiffinDaysCount = Array.from(tiffin.days.values()).filter(Boolean).length;
+            const totalAmount = calculateTotalAmount(tiffinDaysCount, vendor.amountPerDay);
 
-        res.status(200).json(responseData);
+            const invoiceNumber = await generateInvoiceNumber();
+
+            const bill = bills.find(bill => bill.month === month);
+            const billAmount = bill ? bill.totalAmount : totalAmount;
+
+            return {
+                month: month,
+                tiffinDays: tiffinDaysCount,
+                totalAmount: totalAmount,
+                billAmount: billAmount,
+                invoiceNumber: invoiceNumber,
+                vendor: {
+                    shopName: vendor.shopName,
+                    address: vendor.address,
+                    contactNumber: vendor.contactNumber,
+                    gstNumber: vendor.gstNumber,
+                    amountPerDay: vendor.amountPerDay,
+                    billingInfo: vendor.billingInfo,
+                }
+            };
+        }));
+
+        res.status(200).json(monthlyData);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server Error' });
