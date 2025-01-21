@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const connection = require('./connections/connection');
 const tiffinTrackingRoutes = require('./routes/tiffin-tracking.routes');
 const userRoutes = require('./routes/authentication.routes');
+const paymentRoutes = require('./routes/payment.routes');
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ app.use(cors());
 
 app.use('/tiffin', tiffinTrackingRoutes);
 app.use('/user', userRoutes);
+app.use('/payment', paymentRoutes);
 
 app.get('/', (req, res) => res.status(200).send('Backend OK'));
 
