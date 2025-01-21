@@ -12,7 +12,7 @@ interface VendorViewProps {
   id: string;
 }
 
-export const VendorView: React.FC<VendorViewProps> = ({ id }) => {
+const VendorView: React.FC<VendorViewProps> = ({ id }) => {
   const [data, setData] = useState<any>(null);
   const { toast } = useToast();
   const nav = useRouter();
@@ -115,3 +115,5 @@ export const VendorView: React.FC<VendorViewProps> = ({ id }) => {
     </div>
   );
 };
+
+export default VendorView;
