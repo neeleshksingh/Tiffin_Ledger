@@ -17,9 +17,11 @@ export default function Timetable() {
     const [totalAmount, setTotalAmount] = useState(0);
     const [payableDays, setPayableDays] = useState(0);
     const { toast } = useToast();
+    const[disableBtn, setDisableBtn] = useState(false);
 
     const fetchMonthData = async (month: Date) => {
         try {
+            setDisableBtn(true);
             const user = localStorage.getItem("user");
             if (user) {
                 const parsedUser = JSON.parse(user);
@@ -39,6 +41,7 @@ export default function Timetable() {
                     setPayableDays(payableDays);
                     setTotalAmount(payableDays * 50);
                     setMonthDays(daysData);
+                    setDisableBtn(false);
                 } else {
                     console.warn("No data found for the current month");
                     toast({
@@ -48,9 +51,11 @@ export default function Timetable() {
                     setMonthDays({});
                     setPayableDays(0);
                     setTotalAmount(0);
+                    setDisableBtn(true);
                 }
             } else {
                 nav.push("/login");
+                setDisableBtn(true);
             }
         } catch (error) {
             console.error("Error fetching month data:", error);
@@ -61,6 +66,7 @@ export default function Timetable() {
             setMonthDays({});
             setPayableDays(0);
             setTotalAmount(0);
+            setDisableBtn(true);
         }
     };
 
@@ -71,6 +77,7 @@ export default function Timetable() {
 
     const handleDayClick = async (selectedDate: any) => {
         try {
+            setDisableBtn(true);
             const user = localStorage.getItem("user");
             if (user) {
                 const parsedUser = JSON.parse(user);
@@ -101,10 +108,13 @@ export default function Timetable() {
                 }));
 
                 fetchMonthData(currentMonth);
+                setDisableBtn(false);
             } else {
                 nav.push("/login");
+                setDisableBtn(true);
             }
         } catch (error) {
+            setDisableBtn(true);
             console.error("Error updating date:", error);
             toast({
                 variant: "error",
@@ -175,9 +185,7 @@ export default function Timetable() {
                     `/payment/generate-upi-payment-link`,
                     payload
                 );
-                console.log(response.data);
                 const link = response.data?.paymentLink || null;
-                console.log(link);
                 if (link) {
                     const startTime = new Date().getTime();
                     nav.push(`/payment-fallback?paymentLink=${encodeURIComponent(link)}&totalAmount=${encodeURIComponent(totalAmount)}`);
@@ -264,13 +272,13 @@ export default function Timetable() {
                             Total Amount: ₹{totalAmount}
                         </p>
                     </div>
-                    <button
+                    <button disabled={disableBtn}
                         className="w-full bg-green-500 text-white py-2 px-4 rounded-md shadow-lg hover:bg-green-600 transition-all"
                         onClick={generatePayment}
                     >
                         Pay Now
                     </button>
-                    <button
+                    <button disabled={disableBtn}
                         className="w-full bg-purple-500 text-white py-2 px-4 rounded-md shadow-lg hover:bg-purple-600 transition-all"
                         onClick={generatePdf}
                     >
