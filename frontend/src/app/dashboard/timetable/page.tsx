@@ -175,7 +175,17 @@ export default function Timetable() {
                     `/payment/generate-upi-payment-link`,
                     payload
                 );
-                const link = response.data?.data?.paymentLink || null;
+                console.log(response.data);
+                const link = response.data?.paymentLink || null;
+                console.log(link);
+                if (link) {
+                    window.location.href = link;
+                } else {
+                    toast({
+                        variant: "error",
+                        title: `Failed to generate payment link.`,
+                    });
+                }
                 toast({
                     variant: "success",
                     title: `Receipt generated successfully`,
