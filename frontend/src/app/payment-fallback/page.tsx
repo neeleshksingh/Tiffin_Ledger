@@ -1,8 +1,9 @@
 'use client';
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import Image from "next/image";
+import { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import paytm from '../../../public/assets/paytm.svg';
 import phonepe from '../../../public/assets/phonepe.svg';
 import googlepay from '../../../public/assets/google.svg';
@@ -10,7 +11,7 @@ import qrCode from '../../../public/assets/qrcode.jpg';
 
 const PaymentFallbackPage = () => {
     const router = useRouter();
-    const searchParams = useSearchParams(); // Get the query parameters
+    const searchParams = useSearchParams();
     const [paymentLink, setPaymentLink] = useState<string | null>(null);
     const [totalAmount, setTotalAmount] = useState<number | null>(null);
     const [isMobile, setIsMobile] = useState(false);
@@ -28,18 +29,16 @@ const PaymentFallbackPage = () => {
             setPaymentLink(paymentLinkFromUrl);
         }
         if (totalAmountFromUrl) {
-            setTotalAmount(Number(totalAmountFromUrl)); // Ensure it's a number
+            setTotalAmount(Number(totalAmountFromUrl));
         }
     }, [searchParams]);
 
     const handleUPIPayment = () => {
         if (paymentLink) {
             if (isMobile) {
-                // Try to open the UPI payment link
                 window.location.href = paymentLink;
             } else {
-                // Provide a fallback option for desktop users
-                alert("Please use a UPI-enabled app on your mobile device to complete the payment.");
+                alert('Please use a UPI-enabled app on your mobile device to complete the payment.');
             }
         }
     };
@@ -65,7 +64,7 @@ const PaymentFallbackPage = () => {
                         onClick={handleUPIPayment}
                         className="flex items-center justify-center gap-3 px-6 py-3 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition duration-200"
                     >
-                        <Image src={paytm} alt="Paytm" className="w-8 h-8" ></Image>
+                        <Image src={paytm} alt="Paytm" className="w-8 h-8" />
                         Pay with Paytm
                     </button>
 
@@ -73,7 +72,7 @@ const PaymentFallbackPage = () => {
                         onClick={handleUPIPayment}
                         className="flex items-center justify-center gap-3 px-6 py-3 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition duration-200"
                     >
-                       <Image src={googlepay} alt="Paytm" className="w-8 h-8" ></Image>
+                        <Image src={googlepay} alt="Google Pay" className="w-8 h-8" />
                         Pay with Google Pay
                     </button>
 
@@ -81,7 +80,7 @@ const PaymentFallbackPage = () => {
                         onClick={handleUPIPayment}
                         className="flex items-center justify-center gap-3 px-6 py-3 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition duration-200"
                     >
-                        <Image src={phonepe} alt="Paytm" className="w-8 h-8" ></Image>
+                        <Image src={phonepe} alt="PhonePe" className="w-8 h-8" />
                         Pay with PhonePe
                     </button>
 
@@ -89,11 +88,17 @@ const PaymentFallbackPage = () => {
                     <p className="text-center text-md text-gray-700 mt-4">
                         Alternatively, you can scan the QR code below to complete your payment.
                     </p>
-                    <Image src={qrCode} alt="Payment QR Code" className="w-[25rem] h-[35rem] mx-auto" ></Image>
+                    <Image src={qrCode} alt="Payment QR Code" className="w-[25rem] h-[35rem] mx-auto" />
                 </div>
             </div>
         </div>
     );
 };
 
-export default PaymentFallbackPage;
+const PaymentFallbackPageWithSuspense = () => (
+    <Suspense fallback={<div>Loading...</div>}>
+        <PaymentFallbackPage />
+    </Suspense>
+);
+
+export default PaymentFallbackPageWithSuspense;
