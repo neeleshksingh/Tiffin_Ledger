@@ -17,7 +17,8 @@ export default function Timetable() {
     const [totalAmount, setTotalAmount] = useState(0);
     const [payableDays, setPayableDays] = useState(0);
     const { toast } = useToast();
-    const[disableBtn, setDisableBtn] = useState(false);
+    const [disableBtn, setDisableBtn] = useState(false);
+    const [orderId, setOrderId] = useState('');
 
     const fetchMonthData = async (month: Date) => {
         try {
@@ -41,6 +42,7 @@ export default function Timetable() {
                     setPayableDays(payableDays);
                     setTotalAmount(payableDays * 50);
                     setMonthDays(daysData);
+                    fetchTiffinData();
                     setDisableBtn(false);
                 } else {
                     console.warn("No data found for the current month");
@@ -57,8 +59,16 @@ export default function Timetable() {
                 nav.push("/login");
                 setDisableBtn(true);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error fetching month data:", error);
+            if (error.status === 403) {
+                localStorage.removeItem("token");
+                nav.push("/login");
+                toast({
+                    variant: "error",
+                    title: `Session Expired, Please login again`,
+                });
+            }
             toast({
                 variant: "error",
                 title: `Error fetching month data: ${error}`,
@@ -178,7 +188,7 @@ export default function Timetable() {
             if (user) {
                 const payload = {
                     amount: totalAmount,
-                    orderId: 123456,
+                    orderId: orderId,
                 };
 
                 const response = await axiosInstance.post(
@@ -218,6 +228,40 @@ export default function Timetable() {
             });
         }
     }
+
+    const fetchTiffinData = async () => {
+        try {
+            const user = localStorage.getItem("user");
+            if (user) {
+                const parsedUser = JSON.parse(user);
+                const userId = parsedUser._id;
+                const response = await axiosInstance.get(`/tiffin/tiffin-bill/${userId}`);
+                const currentMonth = new Date().toISOString().slice(0, 7);
+                const currentMonthData = response.data?.find((item: any) => item.month === currentMonth) || null;
+
+                if (currentMonthData) {
+                    setOrderId(currentMonthData.invoiceNumber);
+                } else {
+                    console.warn("No data found for the current month");
+                    toast({
+                        variant: "warning",
+                        title: `No data found for this month`,
+                    });
+                }
+            } else {
+                nav.push("/login");
+            }
+        } catch (error: any) {
+            console.error("Error fetching month data:", error);
+            if (error.status === 403) {
+                nav.push("/login");
+            }
+            toast({
+                variant: "error",
+                title: `Error fetching month data: ${error}`,
+            });
+        }
+    };
 
     return (
         <div className="p-3 space-y-8 bg-gray-100">
