@@ -42,7 +42,6 @@ export default function VendorViewPage({ params }: PageProps) {
           const userId = parsedUser._id;
 
           const response = await axiosInstance.get(`/tiffin/vendors/${resolvedParams.id}`);
-          console.log("Vendor Data:", response.data);
           setData(response.data);
         } else {
           nav.push("/login");
