@@ -19,6 +19,7 @@ export default function Timetable() {
     const { toast } = useToast();
     const [disableBtn, setDisableBtn] = useState(false);
     const [orderId, setOrderId] = useState('');
+    const disabledDays = { after: new Date() };
 
     const fetchMonthData = async (month: Date) => {
         try {
@@ -284,6 +285,7 @@ export default function Timetable() {
                                 setDate(day);
                                 handleDayClick(day);
                             }}
+                            disabled={disabledDays}
                             onMonthChange={handleMonthChange}
                             modifiersClassNames={{
                                 greenDay: "bg-green-400 text-white",

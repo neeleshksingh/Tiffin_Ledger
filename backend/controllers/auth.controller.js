@@ -60,3 +60,24 @@ exports.signin = async (req, res) => {
         res.status(500).json({ message: 'Error signing in.', error: error.message });
     }
 };
+
+exports.logoutController = async (req, res) => {
+    try {
+        // Optional: You can maintain a blacklist of invalid tokens on the server
+        const token = req.headers.authorization?.split(' ')[1];
+        await blacklistToken(token);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Logged out successfully',
+            data: null
+        });
+    } catch (error) {
+        console.error('Logout error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error during logout',
+            error: error.message
+        });
+    }
+};

@@ -1,37 +1,61 @@
-import axios from 'axios';
+// src/lib/axios.interceptor.ts
+"use client";
 
-const url = process.env.NEXT_PUBLIC_API_ENDPOINT;
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
-const axiosInstance = axios.create({
-    baseURL: url,
+interface LoadingContextType {
+  incrementRequests: () => void;
+  decrementRequests: () => void;
+}
+
+let loadingContext: LoadingContextType | null = null;
+
+export const setLoadingContext = (context: LoadingContextType) => {
+  loadingContext = context;
+};
+
+const axiosInstance: AxiosInstance = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_ENDPOINT,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
 axiosInstance.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('token');
-
-        if (token) {
-            config.headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
+  (config: InternalAxiosRequestConfig) => {
+    loadingContext?.incrementRequests();
+    
+    // Get token from localStorage
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
     }
+    
+    return config;
+  },
+  (error) => {
+    loadingContext?.decrementRequests();
+    return Promise.reject(error);
+  }
 );
 
 axiosInstance.interceptors.response.use(
-    (response) => {
-        return response;
-    },
-    (error) => {
-        if (error.response && error.response.status === 401) {
-            localStorage.removeItem('token');
-            window.location.href = '/login';
-        }
-        return Promise.reject(error);
+  (response) => {
+    loadingContext?.decrementRequests();
+    return response;
+  },
+  (error) => {
+    loadingContext?.decrementRequests();
+    
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
     }
+    return Promise.reject(error);
+  }
 );
 
 export default axiosInstance;
