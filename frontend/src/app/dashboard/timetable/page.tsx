@@ -43,7 +43,6 @@ export default function Timetable() {
                     setTotalAmount(payableDays * 50);
                     setMonthDays(daysData);
                     fetchTiffinData();
-                    setDisableBtn(false);
                 } else {
                     console.warn("No data found for the current month");
                     toast({
@@ -231,6 +230,7 @@ export default function Timetable() {
 
     const fetchTiffinData = async () => {
         try {
+            setDisableBtn(true);
             const user = localStorage.getItem("user");
             if (user) {
                 const parsedUser = JSON.parse(user);
@@ -241,18 +241,22 @@ export default function Timetable() {
 
                 if (currentMonthData) {
                     setOrderId(currentMonthData.invoiceNumber);
+                    setDisableBtn(false);
                 } else {
                     console.warn("No data found for the current month");
+                    setDisableBtn(true);
                     toast({
                         variant: "warning",
                         title: `No data found for this month`,
                     });
                 }
             } else {
+                setDisableBtn(true);
                 nav.push("/login");
             }
         } catch (error: any) {
             console.error("Error fetching month data:", error);
+            setDisableBtn(true);
             if (error.status === 403) {
                 nav.push("/login");
             }
