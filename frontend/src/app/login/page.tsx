@@ -36,11 +36,11 @@ export default function Login (){
             localStorage.setItem('user', JSON.stringify(user));
             Cookies.set('token', token, { secure: true, httpOnly: false });
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            nav.push('/dashboard')            
             toast({
                 variant: "success",
                 title: `Welcome, ${response.data.user.name}`,
             });
-            nav.push('/dashboard')
            
         } catch (err : any) {
             setError('Invalid email or password');
