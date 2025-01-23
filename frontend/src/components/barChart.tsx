@@ -12,10 +12,14 @@ const BarChartComponent = ({ data }: BarChartComponentProps) => {
         fill: item.isTaken ? 'url(#greenGradient)' : 'url(#redGradient)',
     }));
 
+    const sortedData = transformedData.sort((a, b) => {
+        return parseInt(a.name, 10) - parseInt(b.name, 10);
+    });
+
     return (
         <div className="h-72 sm:h-96 w-full">
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={transformedData}>
+                <BarChart data={sortedData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E0E7FF" />
                     <XAxis dataKey="name" tick={{ fill: '#6B7280' }} />
                     <YAxis tick={{ fill: '#6B7280' }} />
