@@ -22,6 +22,8 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@components/components/ui/alert-dialog"
+import axiosInstance from "@components/interceptors/axios.interceptor";
+import { useToast } from "@components/hooks/use-toast";
 
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -31,6 +33,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+    const [userData, setUserData] = useState({
+        profilePic:''
+    });
+    const { toast } = useToast();
+    
 
     const getComponentForRoute = () => {
         if (pathname === "/dashboard") return <Landing />;
@@ -39,6 +46,26 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         return children;
     };
 
+    const getUserData = async () => {
+        try {
+            const response = await axiosInstance.get(`profile/view-profile/${JSON.parse(localStorage.getItem("user") || "{}")._id}`);
+            setUserData(response.data.data.user);
+        } catch (error) {
+            toast({
+                variant: "error",
+                title: `Error fetching user data: ${error}`,
+            });
+        }
+    }
+
+    useEffect(()=>{
+        const token = localStorage.getItem("token");
+        if (!token) {
+            router.push("/login");
+        } else {
+            getUserData();
+        }
+    },[])
 
 
     useEffect(() => {
@@ -149,12 +176,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                             <div className="border-t pt-6">
                                 <div className="flex items-center gap-4 mb-5 cursor-pointer hover:bg-[#e1f7e7] hover:shadow-md rounded-xl p-3 transition-all duration-200">
                                     <Image
-                                        src={Profile}
+                                        src={userData.profilePic || Profile}
                                         alt="User Avatar"
                                         width={35}
                                         height={35}
                                         className="rounded-full border-2 border-[#4CAF50] shadow-md"
                                     />
+
                                     <div className="text-sm">
                                         <p className="font-semibold text-[#374151]">{userName}</p>
                                         <p className="text-xs text-gray-500">View Profile</p>
