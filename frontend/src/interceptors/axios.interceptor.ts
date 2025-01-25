@@ -1,4 +1,3 @@
-// src/lib/axios.interceptor.ts
 "use client";
 
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
@@ -22,10 +21,12 @@ const axiosInstance: AxiosInstance = axios.create({
   },
 });
 
+const MAX_RETRIES = 3;
+
 axiosInstance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     loadingContext?.incrementRequests();
-    
+
     // Get token from localStorage
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
@@ -33,7 +34,7 @@ axiosInstance.interceptors.request.use(
         config.headers['Authorization'] = `Bearer ${token}`;
       }
     }
-    
+
     return config;
   },
   (error) => {
@@ -49,10 +50,28 @@ axiosInstance.interceptors.response.use(
   },
   (error) => {
     loadingContext?.decrementRequests();
-    
-    if (error.response?.status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+
+    const config = error.config;
+    const isTimeoutError = error.code === "ECONNABORTED" && error.message.includes("timeout");
+    // Retry logic
+    if (isTimeoutError && config && !config._retry) {
+      config._retry = true;
+      config.retryCount = (config.retryCount || 0) + 1;
+
+      if (config.retryCount <= MAX_RETRIES) {
+        console.log(`Retrying request... Attempt ${config.retryCount}`);
+        return axiosInstance(config);
+      }
+    }
+
+    if (
+      (error.response?.status === 401 ||
+        error.response?.status === 403 ||
+        error.response?.status === 404) &&
+      typeof window !== "undefined"
+    ) {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
     }
     return Promise.reject(error);
   }

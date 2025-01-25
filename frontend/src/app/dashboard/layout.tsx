@@ -34,10 +34,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     const pathname = usePathname();
     const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
     const [userData, setUserData] = useState({
-        profilePic:''
+        profilePic: ''
     });
     const { toast } = useToast();
-    
+    const nav = useRouter();
+    const [userId, setUserId] = useState<string | null>(null);
 
     const getComponentForRoute = () => {
         if (pathname === "/dashboard") return <Landing />;
@@ -58,14 +59,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         }
     }
 
-    useEffect(()=>{
+    useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) {
             router.push("/login");
         } else {
             getUserData();
         }
-    },[])
+    }, [])
 
 
     useEffect(() => {
@@ -95,6 +96,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, [isSidebarOpen]);
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const user = JSON.parse(localStorage.getItem("user") || "{}");
+            setUserId(user?._id || null);
+        }
+    }, []);
 
     const handleLogout = () => {
         try {
@@ -174,7 +182,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
                         <div>
                             <div className="border-t pt-6">
-                                <div className="flex items-center gap-4 mb-5 cursor-pointer hover:bg-[#e1f7e7] hover:shadow-md rounded-xl p-3 transition-all duration-200">
+                                <div onClick={() => {
+                                    if (userId) {
+                                        nav.push(`/dashboard/profile/${userId}`);
+                                    }
+                                }}
+                                    className={`flex items-center gap-4 mb-5 cursor-pointer hover:bg-[#e1f7e7] hover:shadow-md rounded-xl p-3 transition-all duration-200
+                                    ${pathname === `/dashboard/profile/${userId}` ? "bg-white shadow-md" : ""}`}
+                                >
                                     <Image
                                         src={userData.profilePic || Profile}
                                         alt="User Avatar"
