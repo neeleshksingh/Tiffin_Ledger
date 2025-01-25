@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { FaMapMarkerAlt, FaPhoneAlt, FaRegBuilding, FaCalendar } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaPhoneAlt, FaRegBuilding, FaCalendar, FaPen } from 'react-icons/fa';
 import { useToast } from '@components/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import axiosInstance from '@components/interceptors/axios.interceptor';
@@ -108,24 +108,88 @@ export default function Profile({ params }: PageProps) {
         return attendancePercentage.toFixed(2);
     };
 
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            try {
+                const formData = new FormData();
+                formData.append('profilePic', file);
+                const userId = resolvedParams.id;
+
+                const response = await axiosInstance.post(`/profile-pic/upload-profile-pic/${userId}`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                });
+
+                setData((prevData) => {
+                    if (prevData) {
+                        return {
+                            ...prevData,
+                            user: {
+                                ...prevData.user,
+                                profilePic: response.data.data.profilePic,
+                            },
+                        };
+                    }
+                    return prevData;
+                });
+            } catch (error) {
+                console.error('Error uploading profile picture:', error);
+                toast({
+                    variant: 'error',
+                    title: 'Error uploading profile picture',
+                    description: error instanceof Error ? error.message : 'Something went wrong',
+                });
+            }
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-6">
             <div className="max-w-4xl mx-auto bg-white shadow-2xl rounded-2xl overflow-hidden">
                 <div className="bg-gradient-to-br from-black via-gray-900 to-gray-800 p-6 text-center relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shine"></div>
-                    <div className="relative w-32 h-32 mx-auto mb-4">
+                    {/* Use pointer-events: none to ensure shine doesn't block interactions */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shine pointer-events-none"></div>
+                    <div className="relative w-32 h-32 mx-auto mb-4 z-10">
                         <Image
                             src={data?.user.profilePic || defaultPic}
                             alt={data?.user.name || 'Profile Picture'}
                             fill
                             className="rounded-full object-cover border-4 border-white"
                         />
+                        {/* Pencil Icon */}
+                        <label htmlFor="file-upload" className="absolute right-0 bottom-0 bg-blue-600 p-2 rounded-full cursor-pointer">
+                            <FaPen className="text-white" />
+                        </label>
+                        <input
+                            id="file-upload"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                        />
                     </div>
-                    <h1 className="text-2xl font-bold text-white">{data?.user?.name}</h1>
-                    <p className="text-blue-100">{data?.user?.email}</p>
+                    <h1 className="text-2xl font-bold text-white z-10">{data?.user?.name}</h1>
+                    <p className="text-blue-100 z-10">{data?.user?.email}</p>
+
+                    <div className="mt-4 flex flex-col sm:flex-row justify-center gap-4 z-10">
+                        <button
+                            onClick={() => nav.push('/dashboard/profile/profile-manage/' + resolvedParams.id)}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 transition-all w-full sm:w-auto"
+                        >
+                            Edit Profile
+                        </button>
+                        <button
+                            onClick={() => nav.push('/dashboard/vendor-preferences')}
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-green-700 transition-all w-full sm:w-auto"
+                        >
+                            Select Vendor Preferences
+                        </button>
+                    </div>
                 </div>
 
-                <div className="p-6 grid md:grid-cols-2 gap-6">
+                <div className="p-6 grid md:grid-cols-2 gap-6 z-10">
                     <div className="bg-blue-50 p-4 rounded-lg">
                         <h2 className="text-xl font-semibold mb-4 text-blue-800">Tiffin Service Details</h2>
                         <div className="space-y-3">
@@ -172,7 +236,7 @@ export default function Profile({ params }: PageProps) {
                                                 <div
                                                     key={dateString}
                                                     className={`h-6 w-6 rounded-full 
-                                                        ${dayInfo ? (dayInfo.isTiffinTaken ? 'bg-green-500' : 'bg-red-500')
+                                                ${dayInfo ? (dayInfo.isTiffinTaken ? 'bg-green-500' : 'bg-red-500')
                                                             : 'bg-gray-300'
                                                         }`}
                                                     title={`Date: ${dateString}, Tiffin Taken: ${dayInfo?.isTiffinTaken || 'Not marked'}`}
