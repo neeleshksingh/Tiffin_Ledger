@@ -7,6 +7,7 @@ import { useToast } from '@components/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import axiosInstance from '@components/interceptors/axios.interceptor';
 import defaultPic from '../../../../../public/assets/profile.png';
+import ImageCompression from 'browser-image-compression';
 
 interface BillingInfo {
     name: string;
@@ -112,28 +113,19 @@ export default function Profile({ params }: PageProps) {
         const file = e.target.files?.[0];
         if (file) {
             try {
-                const formData = new FormData();
-                formData.append('profilePic', file);
-                const userId = resolvedParams.id;
-
-                const response = await axiosInstance.post(`/profile-pic/upload-profile-pic/${userId}`, formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                });
-
-                setData((prevData) => {
-                    if (prevData) {
-                        return {
-                            ...prevData,
-                            user: {
-                                ...prevData.user,
-                                profilePic: response.data.data.profilePic,
-                            },
-                        };
-                    }
-                    return prevData;
-                });
+                const maxSizeMB = 10;
+                if (file.size / 1024 / 1024 > maxSizeMB) {
+                    const options = {
+                        maxSizeMB: maxSizeMB,
+                        maxWidthOrHeight: 800,
+                        useWebWorker: true,
+                    };
+    
+                    const compressedFile = await ImageCompression(file, options);
+                    await uploadImageToCloudinary(compressedFile);
+                } else {
+                    await uploadImageToCloudinary(file);
+                }
             } catch (error) {
                 console.error('Error uploading profile picture:', error);
                 toast({
@@ -142,6 +134,40 @@ export default function Profile({ params }: PageProps) {
                     description: error instanceof Error ? error.message : 'Something went wrong',
                 });
             }
+        }
+    };
+    
+    const uploadImageToCloudinary = async (file: File) => {
+        try {
+            const formData = new FormData();
+            formData.append('profilePic', file);
+            const userId = resolvedParams.id;
+    
+            const response = await axiosInstance.post(`/profile-pic/upload-profile-pic/${userId}`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+    
+            setData((prevData) => {
+                if (prevData) {
+                    return {
+                        ...prevData,
+                        user: {
+                            ...prevData.user,
+                            profilePic: response.data.data.profilePic,
+                        },
+                    };
+                }
+                return prevData;
+            });
+        } catch (error) {
+            console.error('Error uploading profile picture:', error);
+            toast({
+                variant: 'error',
+                title: 'Error uploading profile picture',
+                description: error instanceof Error ? error.message : 'Something went wrong',
+            });
         }
     };
 
