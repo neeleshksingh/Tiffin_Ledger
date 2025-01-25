@@ -13,6 +13,7 @@ exports.addOrUpdateProfile = async (req, res) => {
                 address,
                 contact,
                 messId,
+                profilePic,
             });
         } else {
             user.name = name || user.name;
@@ -20,6 +21,7 @@ exports.addOrUpdateProfile = async (req, res) => {
             user.address = address || user.address;
             user.contact = contact || user.contact;
             user.messId = messId || user.messId;
+            user.profilePic = profilePic || user.profilePic;
         }
 
         const savedUser = await user.save();
