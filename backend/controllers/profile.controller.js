@@ -2,7 +2,7 @@ const User = require('../models/user');
 const TiffinTracking = require('../models/tiffin-tracking');
 
 exports.addOrUpdateProfile = async (req, res) => {
-    const { userId, name, email, address, contact, messId } = req.body;
+    const { userId, name, email, address, contact, messId, profilePic } = req.body;
 
     try {
         let user = await User.findById(userId);
@@ -27,9 +27,11 @@ exports.addOrUpdateProfile = async (req, res) => {
         const savedUser = await user.save();
         res.status(200).json({ message: 'User profile saved successfully', data: savedUser });
     } catch (error) {
-        res.status(500).json({ message: 'Error saving profile', error });
+        console.error('Error saving profile:', error);
+        res.status(500).json({ message: 'Error saving profile', error: error.message || error });
     }
 };
+
 
 exports.getProfileById = async (req, res) => {
     const { userId } = req.params;
