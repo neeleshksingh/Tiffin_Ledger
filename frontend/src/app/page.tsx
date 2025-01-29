@@ -41,8 +41,8 @@ export default function Home() {
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
               <Link href="#features" className="text-gray-600 hover:text-orange-600 transition">Features</Link>
-              <Link href="#about" className="text-gray-600 hover:text-orange-600 transition">About</Link>
-              <Link href="#contact" className="text-gray-600 hover:text-orange-600 transition">Contact</Link>
+              <Link href="/about-us" className="text-gray-600 hover:text-orange-600 transition">About</Link>
+              <Link href="/contact" className="text-gray-600 hover:text-orange-600 transition">Contact</Link>
               <Button asChild className="bg-orange-600 hover:bg-orange-700">
                 <Link href="/login">Login</Link>
               </Button>
@@ -65,7 +65,7 @@ export default function Home() {
               <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
                 <Link href="#features" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">Features</Link>
                 <Link href="#about" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">About</Link>
-                <Link href="#contact" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">Contact</Link>
+                <Link href="/contact" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">Contact</Link>
                 <Button asChild className="w-full bg-orange-600 hover:bg-orange-700 mt-4">
                   <Link href="/login">Login</Link>
                 </Button>

@@ -7,6 +7,7 @@ import Image from "next/image";
 import Neelesh from "../../../public/assets/neelesh.jpg";
 import Kajal from "../../../public/assets/kajal.jpg";
 import Neelu from "../../../public/assets/neelu.jpg";
+import Logo from "../../../public/assets/logo.png";
 
 export default function AboutUs() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -15,7 +16,7 @@ export default function AboutUs() {
         { number: "1000+", label: "Happy Customers" },
         { number: "50+", label: "Tiffin Providers" },
         { number: "10K+", label: "Daily Meals" },
-        { number: "4.9/5", label: "Customer Rating" }
+        { number: "4.9/5", label: "Customer Ratings" }
     ];
 
     const team = [
@@ -45,14 +46,15 @@ export default function AboutUs() {
             <nav className="fixed w-full bg-white/80 backdrop-blur-sm shadow-sm z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center h-16">
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-2">
+                            <Image src={Logo} alt="Logo" width={40} height={40} />
                             <Link href="/" className="text-2xl font-bold text-orange-600">Tiffin Ledger</Link>
                         </div>
 
                         <div className="hidden md:flex items-center space-x-8">
                             <Link href="/" className="text-gray-600 hover:text-orange-600 transition">Home</Link>
                             <Link href="#" className="text-orange-600">About</Link>
-                            <Link href="#contact" className="text-gray-600 hover:text-orange-600 transition">Contact</Link>
+                            <Link href="/contact" className="text-gray-600 hover:text-orange-600 transition">Contact</Link>
                             <Button asChild className="bg-orange-600 hover:bg-orange-700">
                                 <Link href="/login">Login</Link>
                             </Button>
@@ -73,7 +75,7 @@ export default function AboutUs() {
                             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
                                 <Link href="/" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">Home</Link>
                                 <Link href="#" className="block px-3 py-2 text-orange-600">About</Link>
-                                <Link href="#contact" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">Contact</Link>
+                                <Link href="/contact" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">Contact</Link>
                                 <Button asChild className="w-full bg-orange-600 hover:bg-orange-700 mt-4">
                                     <Link href="/login">Login</Link>
                                 </Button>
@@ -192,7 +194,7 @@ export default function AboutUs() {
                             <ul className="space-y-2">
                                 <li><Link href="/" className="text-gray-400 hover:text-orange-500 transition">Home</Link></li>
                                 <li><Link href="#" className="text-gray-400 hover:text-orange-500 transition">About</Link></li>
-                                <li><Link href="#contact" className="text-gray-400 hover:text-orange-500 transition">Contact</Link></li>
+                                <li><Link href="/contact" className="text-gray-400 hover:text-orange-500 transition">Contact</Link></li>
                             </ul>
                         </div>
                         <div>
