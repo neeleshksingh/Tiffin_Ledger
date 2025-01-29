@@ -12,8 +12,9 @@ export default function Landing() {
     const { toast } = useToast();
     const nav = useRouter();
     const [transformedDays, setTransformedDays] = useState<any>([]);
+    const [upcomingMeal, setUpcomingMeal] = useState<any>(null);
 
-    const transformDaysData = (tiffinData:any) => {
+    const transformDaysData = (tiffinData: any) => {
         if (tiffinData && tiffinData.days && tiffinData.days[0] && tiffinData.days[0].isTaken) {
             const days = tiffinData.days[0].isTaken.days;
             return Object.keys(days).map(day => ({
@@ -23,7 +24,7 @@ export default function Landing() {
         }
         return [];
     };
-    
+
     const fetchTiffinData = async () => {
         try {
             const user = localStorage.getItem("user");
@@ -32,17 +33,19 @@ export default function Landing() {
                 const userId = parsedUser._id;
                 const response = await axiosInstance.get(`/tiffin/tiffin-bill/${userId}`);
                 const currentMonth = new Date().toISOString().slice(0, 7);
-                const currentMonthData = response.data?.find((item:any) => item.month === currentMonth) || null;
-    
+                const currentMonthData = response.data?.find((item: any) => item.month === currentMonth) || null;
+
                 if (currentMonthData) {
                     const transformedDays = transformDaysData(currentMonthData);
-    
+
                     setTransformedDays(transformedDays);
 
                     setTiffinData({
                         ...currentMonthData,
                         days: transformedDays
                     });
+
+                    getUpComingMeal(currentMonthData.vendor.id);
 
                 } else {
                     console.warn("No data found for the current month");
@@ -62,7 +65,42 @@ export default function Landing() {
             });
         }
     };
-    
+
+    const getUpComingMeal = async (vendorId?: string) => {
+        const today = new Date();
+        try {
+            const user = localStorage.getItem("user");
+            if (user) {
+                const response = await axiosInstance.get(`/tiffin/get-meals/${vendorId}`);
+                const meals = response.data; // Assuming it's an array of objects
+
+                console.log("Upcoming meal response:", meals);
+
+                // Get today's date in YYYY-MM-DD format
+                const today = new Date().toISOString().split("T")[0];
+
+                // Find meal matching today's date
+                const todayMeal = meals.find((meal: any) => meal.date.split("T")[0] === today);
+
+                if (todayMeal) {
+                    setUpcomingMeal(todayMeal);
+                } else {
+                    setUpcomingMeal(null);
+                }
+
+            } else {
+                nav.push("/login");
+            }
+        } catch (error) {
+            console.error("Error fetching upcoming meal:", error);
+            toast({
+                variant: "error",
+                title: `Error fetching upcoming meal: ${error}`,
+            });
+
+        }
+    }
+
 
     useEffect(() => {
         fetchTiffinData();
@@ -123,15 +161,28 @@ export default function Landing() {
                     <div className="bg-[#FFF9E6] shadow-xl rounded-xl p-6 cursor-pointer transform hover:scale-105 transition-all duration-300 ease-in-out">
                         <div className="flex items-center space-x-4 mb-4">
                             <div className="h-12 w-12 bg-yellow-200 rounded-full flex items-center justify-center">
-                                <svg className="h-8 w-8 text-[#FFB300]" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v2h2v-2zm0-4h2V7h-2v6z"></path></svg>
+                                <svg className="h-8 w-8 text-[#FFB300]" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-10S17.52 2 12 2zm1 15h-2v2h2v-2zm0-4h2V7h-2v6z"></path>
+                                </svg>
                             </div>
                             <div>
                                 <h3 className="text-xl font-semibold text-gray-800 font-poppins">Upcoming Tiffin Deliveries</h3>
                                 <p className="text-sm text-gray-500 font-roboto">Your next delivery is scheduled</p>
                             </div>
                         </div>
-                        <div className="text-xl font-bold text-gray-800 font-poppins">Tomorrow: Veggie Delight</div>
-                        <p className="text-sm text-gray-500 font-roboto">Scheduled for 12:00 PM</p>
+
+                        {upcomingMeal ? (
+                            <>
+                                <div className="text-lg font-bold text-gray-800 font-poppins">Meals for Today</div>
+                                <ul className="text-sm text-gray-600 font-roboto">
+                                    <li><strong>Breakfast:</strong> {upcomingMeal.mealDetails.breakfast}</li>
+                                    <li><strong>Lunch:</strong> {upcomingMeal.mealDetails.lunch}</li>
+                                    <li><strong>Dinner:</strong> {upcomingMeal.mealDetails.dinner}</li>
+                                </ul>
+                            </>
+                        ) : (
+                            <p className="text-sm text-gray-500 font-roboto">No meal scheduled for today</p>
+                        )}
                     </div>
 
                 </div>
@@ -154,7 +205,7 @@ export default function Landing() {
                                     Average daily consumption: 0.5 meals/day
                                 </p>
                                 <div className="mt-6">
-                                    <BarChartComponent data={transformedDays || []}/>
+                                    <BarChartComponent data={transformedDays || []} />
                                 </div>
                             </div>
                         </div>

@@ -159,7 +159,7 @@ export default function AboutUs() {
                         {team.map((member, index) => (
                             <div key={index} className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition">
                                 <div className="w-32 h-32 bg-orange-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                                    <Image src={member.image} alt={member.name} width={100} height={100} className="w-32 h-32 rounded-full" />
+                                    <Image src={member.image} alt={member.name} width={100} height={100} className="w-32 h-32 rounded-full" draggable={false} />
                                 </div>
                                 <h3 className="text-xl font-semibold text-center mb-2">{member.name}</h3>
                                 <p className="text-orange-600 text-center mb-4">{member.role}</p>

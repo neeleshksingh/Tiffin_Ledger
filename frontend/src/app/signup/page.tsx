@@ -96,7 +96,7 @@ export default function SignUp() {
             </nav>
 
             {/* Sign In Content */}
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-orange-50 p-4">
+            <div className="pt-16 min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-orange-50 p-4">
                 <div className="w-full max-w-md">
                     {/* Logo and Title */}
                     <div className="text-center mb-8">
