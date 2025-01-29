@@ -1,5 +1,6 @@
 const Vendor = require('../models/vendor');
 const User = require('../models/user');
+const Meal = require('../models/meal');
 
 const getVendors = async (req, res) => {
     try {
@@ -143,6 +144,79 @@ const getVendorById = async (req, res) => {
     }
 };
 
+const addMeal = async (req, res) => {
+    try {
+        const { vendorId, date, mealDetails } = req.body;
+
+        if (!vendorId || !date || !mealDetails) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        const vendor = await Vendor.findById(vendorId);
+        if (!vendor) {
+            return res.status(404).json({ message: 'Vendor not found' });
+        }
+
+        const newMeal = new Meal({
+            vendorId,
+            date,
+            mealDetails,
+        });
+
+        await newMeal.save();
+
+        res.status(201).json({ message: 'Meal added successfully', meal: newMeal });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+const getMealsByVendorId = async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+
+        const vendor = await Vendor.findById(vendorId);
+        if (!vendor) {
+            return res.status(404).json({ message: 'Vendor not found' });
+        }
+
+        const meals = await Meal.find({ vendorId });
+
+        if (meals.length === 0) {
+            return res.status(404).json({ message: 'No meals found for this vendor' });
+        }
+
+        res.status(200).json(meals);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+const addMultipleMeals = async (req, res) => {
+    try {
+        const meals = req.body;
+
+        if (!Array.isArray(meals) || meals.length === 0) {
+            return res.status(400).json({ message: 'Invalid meal data' });
+        }
+
+        const vendorIds = [...new Set(meals.map(meal => meal.vendorId))];
+        const existingVendors = await Vendor.find({ _id: { $in: vendorIds } });
+
+        if (existingVendors.length !== vendorIds.length) {
+            return res.status(404).json({ message: 'One or more vendors not found' });
+        }
+
+        const createdMeals = await Meal.insertMany(meals);
+        res.status(201).json({ message: 'Meals added successfully', meals: createdMeals });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
 module.exports = {
     getVendors,
     assignVendorToUser,
@@ -151,5 +225,8 @@ module.exports = {
     deleteVendorById,
     addMultipleVendors,
     deleteMultipleVendors,
-    getVendorById
+    getVendorById,
+    addMeal,
+    getMealsByVendorId,
+    addMultipleMeals,
 };

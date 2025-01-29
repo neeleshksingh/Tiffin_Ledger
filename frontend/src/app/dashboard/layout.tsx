@@ -195,7 +195,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                                         alt="User Avatar"
                                         width={35}
                                         height={35}
-                                        className="rounded-full border-2 border-[#4CAF50] shadow-md"
+                                        className="rounded-full w-10 h-10 border-2 border-[#4CAF50] shadow-md"
                                     />
 
                                     <div className="text-sm">

@@ -5,7 +5,7 @@ const { generateBillPDF } = require('../controllers/bill.controller');
 const { authenticateToken } = require('../middlewares/auth.middleware');
 const { getUserTiffinAndBilling } = require('../controllers/tiffin-billing.controller');
 const validateRequest = require('../middlewares/validate-request.middleware');
-const { getVendors, assignVendorToUser, createVendor, updateVendorById, deleteVendorById, deleteMultipleVendors, addMultipleVendors, getVendorById } = require('../controllers/vendor.controller');
+const { getVendors, assignVendorToUser, createVendor, updateVendorById, deleteVendorById, deleteMultipleVendors, addMultipleVendors, getVendorById, getMealsByVendorId, addMultipleMeals, addMeal } = require('../controllers/vendor.controller');
 
 // Update tracking data
 router.post('/track/add', authenticateToken, validateRequest, updateTracking);
@@ -37,5 +37,11 @@ router.delete('/delete-vendor/:id', deleteVendorById);
 router.delete('/delete-multiple-vendors', deleteMultipleVendors);
 
 router.post('add-multiple-vendors', addMultipleVendors);
+
+router.get('/get-meals/:vendorId', getMealsByVendorId);
+
+router.post('/add-multiple-meals', addMultipleMeals);
+
+router.post('/add-meal/', addMeal);
 
 module.exports = router;
