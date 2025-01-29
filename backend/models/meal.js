@@ -6,21 +6,15 @@ const MealSchema = new mongoose.Schema({
         ref: 'Vendor',
         required: true
     },
-    userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    },
     date: {
         type: Date,
         required: true
     },
     mealDetails: {
-        breakfast: { type: Boolean, default: false },
-        lunch: { type: Boolean, default: false },
-        dinner: { type: Boolean, default: false }
-    },
-    totalCost: { type: Number, required: true }
+        breakfast: { type: String, required: false },
+        lunch: { type: String, required: false },
+        dinner: { type: String, required: false }
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Meal', MealSchema);
