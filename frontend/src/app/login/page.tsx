@@ -70,7 +70,7 @@ export default function Login() {
 
                         <div className="hidden md:flex items-center space-x-8">
                             <Link href="/" className="text-gray-600 hover:text-orange-600 transition">Home</Link>
-                            <Link href="/about" className="text-gray-600 hover:text-orange-600 transition">About</Link>
+                            <Link href="/about-us" className="text-gray-600 hover:text-orange-600 transition">About</Link>
                             <Link href="/contact" className="text-gray-600 hover:text-orange-600 transition">Contact</Link>
                             <Button asChild className="bg-orange-600 hover:bg-orange-700">
                                 <Link href="/login">Login</Link>
@@ -91,7 +91,7 @@ export default function Login() {
                         <div className="md:hidden">
                             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
                                 <Link href="/" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">Home</Link>
-                                <Link href="/about" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">About</Link>
+                                <Link href="/about-us" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">About</Link>
                                 <Link href="/contact" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">Contact</Link>
                                 <Button asChild className="w-full bg-orange-600 hover:bg-orange-700 mt-4">
                                     <Link href="/login">Login</Link>
@@ -222,7 +222,7 @@ export default function Login() {
                             <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
                             <ul className="space-y-2">
                                 <li><Link href="/" className="text-gray-400 hover:text-orange-500 transition">Home</Link></li>
-                                <li><Link href="/about" className="text-gray-400 hover:text-orange-500 transition">About</Link></li>
+                                <li><Link href="/about-us" className="text-gray-400 hover:text-orange-500 transition">About</Link></li>
                                 <li><Link href="/contact" className="text-gray-400 hover:text-orange-500 transition">Contact</Link></li>
                             </ul>
                         </div>
