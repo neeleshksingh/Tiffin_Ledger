@@ -237,6 +237,7 @@ export default function ProfileManage({ params }: PageProps) {
             };
 
             const response = await axiosInstance.post(`/profile/add-profile`, formPayload);
+            
             toast({
                 variant: "success",
                 title: "Profile updated successfully",
@@ -378,7 +379,7 @@ export default function ProfileManage({ params }: PageProps) {
                         </div>
 
                         <div className="flex flex-col">
-                            <label htmlFor="messId" className="text-sm font-medium text-blue-700">Mess ID</label>
+                            <label htmlFor="messId" className="text-sm font-medium text-blue-700">Mess</label>
                             <select
                                 id="messId"
                                 name="messId"
