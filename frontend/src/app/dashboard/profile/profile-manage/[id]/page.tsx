@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { useToast } from '@components/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import axiosInstance from '@components/interceptors/axios.interceptor';
-import { get } from 'http';
 
 interface BillingInfo {
     name: string;
@@ -144,7 +143,7 @@ export default function ProfileManage({ params }: PageProps) {
         }
     };
 
-    const handleDropdownChange = (e:any) => {
+    const handleDropdownChange = (e: any) => {
         const { name, value } = e.target;
         setFormData((prevState) => ({
             ...prevState,
@@ -157,6 +156,14 @@ export default function ProfileManage({ params }: PageProps) {
             try {
                 const userJson = localStorage.getItem("user");
                 if (userJson) {
+                    const userData = JSON.parse(userJson);
+                    const messId = userData?.messId;
+
+                    if (!messId) {
+                        console.log('Please update your profile first. And don\'t forget to select your mess.');
+                        alert('Please update your profile first. And don\'t forget to select your mess.');
+                    }
+
                     const response = await axiosInstance.get<UserData>(`/profile/view-profile/${resolvedParams.id}`);
                     const user = response.data.data.user;
 
@@ -237,7 +244,18 @@ export default function ProfileManage({ params }: PageProps) {
             };
 
             const response = await axiosInstance.post(`/profile/add-profile`, formPayload);
-            
+
+            const userJson = localStorage.getItem("user");
+
+            if (userJson) {
+                const userData = JSON.parse(userJson);
+
+                if (!userData.messId || userData.messId === '') {
+                    userData.messId = formData.messId;
+                    localStorage.setItem("user", JSON.stringify(userData));
+                }
+            }
+
             toast({
                 variant: "success",
                 title: "Profile updated successfully",

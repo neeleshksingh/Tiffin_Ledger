@@ -30,6 +30,18 @@ axiosInstance.interceptors.request.use(
     // Get token from localStorage
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const messId = userData?.messId;
+      if (!messId) {
+        const id = userData?._id;
+        if (id) {
+          if (!window.location.pathname.includes('/profile-manage/')) {
+            window.location.href = `/dashboard/profile/profile-manage/${id}`;
+            return Promise.reject('Redirecting to profile manage page');
+          }
+        }
+      }
+
       if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
       }

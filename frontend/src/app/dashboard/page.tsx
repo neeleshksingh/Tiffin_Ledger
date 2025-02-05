@@ -32,28 +32,31 @@ export default function Landing() {
                 const parsedUser = JSON.parse(user);
                 const userId = parsedUser._id;
                 const response = await axiosInstance.get(`/tiffin/tiffin-bill/${userId}`);
-                const currentMonth = new Date().toISOString().slice(0, 7);
-                const currentMonthData = response.data?.find((item: any) => item.month === currentMonth) || null;
+                if (response && response.data && response.data.length > 0) {
+                    const currentMonth = new Date().toISOString().slice(0, 7);
+                    const currentMonthData = response?.data?.find((item: any) => item.month === currentMonth) || null;
 
-                if (currentMonthData) {
-                    const transformedDays = transformDaysData(currentMonthData);
+                    if (currentMonthData) {
+                        const transformedDays = transformDaysData(currentMonthData);
 
-                    setTransformedDays(transformedDays);
+                        setTransformedDays(transformedDays);
 
-                    setTiffinData({
-                        ...currentMonthData,
-                        days: transformedDays
-                    });
+                        setTiffinData({
+                            ...currentMonthData,
+                            days: transformedDays
+                        });
 
-                    getUpComingMeal(currentMonthData.vendor.id);
+                        getUpComingMeal(currentMonthData.vendor.id);
 
-                } else {
-                    console.warn("No data found for the current month");
-                    toast({
-                        variant: "warning",
-                        title: `No data found for this month`,
-                    });
+                    } else {
+                        console.warn("No data found for the current month");
+                        toast({
+                            variant: "warning",
+                            title: `No data found for this month`,
+                        });
+                    }
                 }
+
             } else {
                 nav.push("/login");
             }
