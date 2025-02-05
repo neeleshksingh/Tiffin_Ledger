@@ -13,7 +13,7 @@ const generateBillPDF = async (req, res) => {
     try {
         // Fetch user and vendor (mess) details
         const user = await User.findById(userId).populate('messId');
-        const tiffinTracking = await TiffinTracking.findOne({ userId });
+        const tiffinTracking = await TiffinTracking.findOne({ userId, month: date.substring(0, 7) });
 
         if (!user || !tiffinTracking) {
             return res.status(404).json({ message: "User or Tiffin tracking data not found" });
