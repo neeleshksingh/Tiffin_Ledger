@@ -41,7 +41,7 @@ const getUserTiffinAndBilling = async (req, res) => {
 
         const tiffinData = await TiffinTracking.find({ userId });
         if (!tiffinData || tiffinData.length === 0) {
-            return res.status(404).json({ message: 'No tiffin tracking data found for this user' });
+            return res.status(204).json({ message: 'No tiffin tracking data found for this user' });
         }
 
         const bills = await Bill.find({ userId }).sort({ createdAt: -1 });
