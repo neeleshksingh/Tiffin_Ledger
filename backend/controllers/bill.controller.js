@@ -11,7 +11,6 @@ const generateBillPDF = async (req, res) => {
     }
 
     try {
-        // Fetch user and vendor (mess) details
         const user = await User.findById(userId).populate('messId');
         const tiffinTracking = await TiffinTracking.findOne({ userId, month: date.substring(0, 7) });
 
@@ -22,7 +21,6 @@ const generateBillPDF = async (req, res) => {
         const uniqueCode = user._id.toString().slice(-4).toUpperCase();
         const invoiceNumber = `INV${uniqueCode}${Date.now()}`;
 
-        // Fetch vendor (mess) details associated with the user
         const vendor = user.messId;
         if (!vendor) {
             return res.status(404).json({ message: "No vendor associated with this user" });
@@ -35,30 +33,32 @@ const generateBillPDF = async (req, res) => {
             shopName: vendor.shopName
         };
 
-        const datesTaken = [];
-        tiffinTracking.days.forEach((value, key) => {
-            if (value === true) {
-                datesTaken.push(key);
-            }
+        // Collect all meals taken (nested)
+        const mealsTaken = [];
+        Array.from(tiffinTracking.days.entries()).forEach(([day, dayMeals]) => {
+            Array.from(dayMeals.entries()).forEach(([mealType, taken]) => {
+                if (taken) {
+                    mealsTaken.push({ day, mealType });
+                }
+            });
         });
 
-        if (datesTaken.length === 0) {
-            return res.status(404).json({ message: "No tiffin days found for this user." });
+        if (mealsTaken.length === 0) {
+            return res.status(404).json({ message: "No meals found for this user." });
         }
 
-        const sortedDates = datesTaken
-            .map(date => {
-                const [day, month, year] = date.split('/');
-                const formattedDay = day.padStart(2, '0');
-                return `${formattedDay}`;
-            })
-            .sort((a, b) => a - b);
+        // Sort by day, then meal order (breakfast, lunch, dinner)
+        const mealOrder = { breakfast: 1, lunch: 2, dinner: 3 };
+        const sortedMeals = mealsTaken.sort((a, b) => {
+            if (a.day !== b.day) return parseInt(a.day) - parseInt(b.day);
+            return (mealOrder[a.mealType] || 4) - (mealOrder[b.mealType] || 4);
+        });
 
-        const items = sortedDates.map((dateTaken) => {
-            const price = vendor.amountPerDay;
+        const items = sortedMeals.map(({ day, mealType }) => {
+            const price = vendor.amountPerDay;  // Per meal
             const amount = price * 1;
             return {
-                name: `Tiffin on ${dateTaken}`,
+                name: `${mealType.charAt(0).toUpperCase() + mealType.slice(1)} on ${day.padStart(2, '0')}`,  // e.g., "Breakfast on 01"
                 quantity: 1,
                 price,
                 amount,
@@ -72,14 +72,10 @@ const generateBillPDF = async (req, res) => {
         const gstAmount = (totalAmount * gstRate) / 100;
         const grandTotal = totalAmount + gstAmount;
 
-        // Create a PDF document
+        // PDF generation (unchanged structure, but items now per-meal)
         const doc = new PDFDocument({ size: 'A4', margin: 50 });
-
-        // Set the response headers for PDF download
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'attachment; filename="bill.pdf"');
-
-        // Pipe the document to the response
         doc.pipe(res);
 
         // Header - Invoice Info
@@ -89,7 +85,7 @@ const generateBillPDF = async (req, res) => {
 
         doc.moveDown(1);
 
-        // Billing Information
+        // Billing Information (unchanged)
         doc.fontSize(12).font('Helvetica-Bold').text('Billing Information:', { underline: true });
         doc.fontSize(12).font('Helvetica').text(`Customer Name: ${billingInfo.name}`);
         doc.text(`GSTIN: ${billingInfo.gstin}`);
@@ -98,7 +94,7 @@ const generateBillPDF = async (req, res) => {
 
         doc.moveDown(2);
 
-        // Table Header - Aligning the columns
+        // Table Header (unchanged)
         const headerY = doc.y;
         const headerX = 50;
 
@@ -107,7 +103,7 @@ const generateBillPDF = async (req, res) => {
         doc.text('Price', headerX + 300, headerY, { width: 100, align: 'center' });
         doc.text('Amount', headerX + 400, headerY, { width: 100, align: 'center' });
 
-        // Draw table rows for each item
+        // Draw table rows for each MEAL (may need wrapping if many)
         let yPosition = headerY + 20;
 
         items.forEach(item => {
@@ -118,13 +114,13 @@ const generateBillPDF = async (req, res) => {
             yPosition += 20;
         });
 
-        // Draw the totals
+        // Draw the totals (unchanged)
         doc.moveDown(1);
         doc.fontSize(12).font('Helvetica-Bold').text(`Total Amount: ${totalAmount}`, headerX, yPosition + 20);
         doc.text(`GST (${gstRate}%): ${gstAmount}`, headerX, yPosition + 40);
         doc.text(`Grand Total: ${grandTotal}`, headerX, yPosition + 60);
 
-        // Footer section
+        // Footer (unchanged)
         const footerY = yPosition + 80;
         doc.moveTo(50, footerY)
             .lineTo(550, footerY)
@@ -134,7 +130,6 @@ const generateBillPDF = async (req, res) => {
         doc.text('For any inquiries, contact us at support@tiffinservice.com', 50, footerY + 20);
         doc.text('Terms and conditions apply. Payment due within 7 days of invoice date.', 50, footerY + 30);
 
-        // Finalize the PDF and end the stream
         doc.end();
 
     } catch (error) {

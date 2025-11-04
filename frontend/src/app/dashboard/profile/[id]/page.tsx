@@ -9,6 +9,8 @@ import axiosInstance from '@components/interceptors/axios.interceptor';
 import defaultPic from '../../../../../public/assets/profile.png';
 import ImageCompression from 'browser-image-compression';
 
+type MealType = "breakfast" | "lunch" | "dinner";
+
 interface BillingInfo {
     name: string;
     gstin: string;
@@ -28,13 +30,14 @@ interface VendorDetails {
 
 interface TiffinDay {
     date: string;
-    isTiffinTaken: boolean;
+    meals: Record<MealType, boolean>;
 }
 
 interface TiffinOverview {
     month: string;
     totalDays: number;
-    tiffinTakenDays: number;
+    totalMeals: number;  // Total individual meals across all days
+    tiffinTakenDays: number;  // Backward compat; total meals
     days: TiffinDay[];
 }
 
@@ -111,9 +114,20 @@ export default function Profile({ params }: PageProps) {
 
     const calculateTiffinAttendance = (tiffinOverview: TiffinOverview | null): string => {
         if (!tiffinOverview) return '0.00';
-        const { totalDays, tiffinTakenDays } = tiffinOverview;
-        const attendancePercentage = (tiffinTakenDays / totalDays) * 100;
+        // Compute number of days with at least one meal taken
+        const daysWithTiffin = tiffinOverview.days.filter(day =>
+            Object.values(day.meals).some(Boolean)
+        ).length;
+        const attendancePercentage = (daysWithTiffin / tiffinOverview.totalDays) * 100;
         return attendancePercentage.toFixed(2);
+    };
+
+    const getTiffinTakenDays = (tiffinOverview: TiffinOverview | null): number => {
+        if (!tiffinOverview) return 0;
+        // Number of days with at least one meal
+        return tiffinOverview.days.filter(day =>
+            Object.values(day.meals).some(Boolean)
+        ).length;
     };
 
     const currentTiffinOverview = data?.tiffinOverview && selectedIndex >= 0 ? data.tiffinOverview[selectedIndex] : null;
@@ -352,7 +366,12 @@ export default function Profile({ params }: PageProps) {
                             <div className="space-y-3">
                                 {[
                                     { label: 'Total Days', value: currentTiffinOverview.totalDays },
-                                    { label: 'Tiffin Taken Days', value: currentTiffinOverview.tiffinTakenDays },
+                                    { label: 'Tiffin Taken Days', value: getTiffinTakenDays(currentTiffinOverview) },
+                                    {
+                                        label: 'Total Meals',
+                                        value: currentTiffinOverview.totalMeals,
+                                        className: 'text-blue-600'
+                                    },
                                     {
                                         label: 'Attendance Percentage',
                                         value: `${calculateTiffinAttendance(currentTiffinOverview)}%`,
@@ -361,7 +380,7 @@ export default function Profile({ params }: PageProps) {
                                 ].map(({ label, value, className }) => (
                                     <div key={label} className="flex justify-between">
                                         <span>{label}:</span>
-                                        <span className={`font-bold ${className}`}>{value}</span>
+                                        <span className={`font-bold ${className || ''}`}>{value}</span>
                                     </div>
                                 ))}
 
@@ -373,14 +392,13 @@ export default function Profile({ params }: PageProps) {
                                         {Array.from({ length: currentTiffinOverview.totalDays }, (_, i) => {
                                             const dateString = (i + 1).toString().padStart(2, '0');
                                             const dayInfo = currentTiffinOverview.days.find(day => day.date === dateString);
+                                            const hasTiffin = dayInfo ? Object.values(dayInfo.meals).some(Boolean) : false;
                                             return (
                                                 <div
                                                     key={dateString}
                                                     className={`h-6 w-6 rounded-full 
-                                                ${dayInfo ? (dayInfo.isTiffinTaken ? 'bg-green-500' : 'bg-red-500')
-                                                            : 'bg-gray-300'
-                                                        }`}
-                                                    title={`Date: ${dateString}, Tiffin Taken: ${dayInfo?.isTiffinTaken || 'Not marked'}`}
+                                                ${hasTiffin ? 'bg-green-500' : 'bg-red-500'}`}
+                                                    title={`Date: ${dateString}, Tiffin Taken: ${hasTiffin ? 'Yes' : 'No'}`}
                                                 >
                                                     <span className="text-xs text-white flex items-center justify-center h-full">{i + 1}</span>
                                                 </div>

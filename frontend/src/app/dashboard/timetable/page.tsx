@@ -1,26 +1,37 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import axiosInstance from "@components/interceptors/axios.interceptor";
-import { DayPicker } from "react-day-picker";
-import "react-day-picker/dist/style.css";
 import { useRouter } from "next/navigation";
 import { useToast } from "@components/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
-type MonthDays = Record<string, boolean>;
+type MealType = "breakfast" | "lunch" | "dinner";
+type DayMeals = Record<MealType, boolean>;
+type MonthDays = Record<string, DayMeals>;
 
 export default function Timetable() {
-    const [date, setDate] = useState(new Date());
-    const [monthDays, setMonthDays] = useState<MonthDays>({});
     const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [monthDays, setMonthDays] = useState<MonthDays>({});
+    const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+    const [showModal, setShowModal] = useState(false);
+    const [dayMeals, setDayMeals] = useState<DayMeals>({ breakfast: false, lunch: false, dinner: false });
     const nav = useRouter();
     const [totalAmount, setTotalAmount] = useState(0);
-    const [payableDays, setPayableDays] = useState(0);
+    const [payableMeals, setPayableMeals] = useState(0);
     const [payableAmount, setPayableAmount] = useState(0);
     const { toast } = useToast();
     const [disableBtn, setDisableBtn] = useState(false);
     const [orderId, setOrderId] = useState('');
-    const disabledDays = { after: new Date() };
+
+    const today = useMemo(() => {
+        const t = new Date();
+        t.setHours(0, 0, 0, 0);
+        return t;
+    }, []);
 
     const fetchMonthData = async (month: Date) => {
         try {
@@ -30,38 +41,48 @@ export default function Timetable() {
                 const parsedUser = JSON.parse(user);
                 const userId = parsedUser._id;
 
+                const response = await axiosInstance.get(`/tiffin/tiffin-bill/${userId}`);
+
+                const data = response.data || [];  // Expect array of monthly data
                 const formattedMonth = `${month.getFullYear()}-${String(
                     month.getMonth() + 1
                 ).padStart(2, "0")}`;
 
-                const response = await axiosInstance.get(`/tiffin/track/get?userId=${userId}&month=${formattedMonth}`);
+                const currentMonthData = data.find((item: any) => item.month === formattedMonth) || null;
 
-                const data = response.data?.data?.[0] || null;
+                if (currentMonthData) {
+                    const flattenedDays: MonthDays = {};
+                    const backendDays = currentMonthData.days || {};
+                    Object.entries(backendDays).forEach(([dayKey, dayObj]: [string, any]) => {
+                        flattenedDays[dayKey] = dayObj.meals || { breakfast: false, lunch: false, dinner: false };
+                    });
 
-                if (data) {
-                    const daysData = data.days || {};
-                    const payableDays = Object.values(daysData).filter((day) => day === true).length;
-                    const fetchedAmount = await fetchTiffinData();
-                    setPayableDays(payableDays);
-                    setTotalAmount(payableDays * fetchedAmount);
-                    setMonthDays(daysData);
+
+                    setMonthDays(flattenedDays);
+                    setPayableMeals(currentMonthData.tiffinMeals);
+                    setTotalAmount(currentMonthData.totalAmount);
+                    setOrderId(currentMonthData.invoiceNumber);
+                    setPayableAmount(currentMonthData.vendor.amountPerMeal);
                 } else {
                     console.warn("No data found for the current month");
                     toast({
                         variant: "warning",
                         title: `No data found for this ${formattedMonth} month`,
                     });
-                    setMonthDays({});
-                    setPayableDays(0);
+                    setMonthDays({} as MonthDays);
+                    setPayableMeals(0);
                     setTotalAmount(0);
-                    setDisableBtn(true);
+                    setOrderId('');
+                    setPayableAmount(0);
                 }
+                setDisableBtn(false);
             } else {
                 nav.push("/login");
                 setDisableBtn(true);
             }
         } catch (error: any) {
             console.error("Error fetching month data:", error);
+            setDisableBtn(false);
             if (error.status === 403) {
                 localStorage.removeItem("token");
                 nav.push("/login");
@@ -74,19 +95,32 @@ export default function Timetable() {
                 variant: "error",
                 title: `Error fetching month data: ${error}`,
             });
-            setMonthDays({});
-            setPayableDays(0);
+            setMonthDays({} as MonthDays);
+            setPayableMeals(0);
             setTotalAmount(0);
-            setDisableBtn(true);
+            setOrderId('');
+            setPayableAmount(0);
         }
     };
-
 
     useEffect(() => {
         fetchMonthData(currentMonth);
     }, [currentMonth]);
 
-    const handleDayClick = async (selectedDate: any) => {
+    const handleDayClick = (selectedDate: Date) => {
+        const dayNumber = String(selectedDate.getDate()).padStart(2, "0");
+        const existingDayMeals = monthDays[dayNumber] || { breakfast: false, lunch: false, dinner: false };
+        setDayMeals(existingDayMeals);
+        setSelectedDay(selectedDate);
+        setShowModal(true);
+    };
+
+    const handleMealToggle = (mealType: MealType, checked: boolean) => {
+        setDayMeals(prev => ({ ...prev, [mealType]: checked }));
+    };
+
+    const saveDayMeals = async () => {
+        if (!selectedDay) return;
         try {
             setDisableBtn(true);
             const user = localStorage.getItem("user");
@@ -94,43 +128,51 @@ export default function Timetable() {
                 const parsedUser = JSON.parse(user);
                 const userId = parsedUser._id;
 
-                const dayNumber = String(selectedDate.getDate()).padStart(2, "0");
-
-                const formattedMonth = `${selectedDate.getFullYear()}-${String(
-                    selectedDate.getMonth() + 1
+                const dayNumber = String(selectedDay.getDate()).padStart(2, "0");
+                const formattedMonth = `${selectedDay.getFullYear()}-${String(
+                    selectedDay.getMonth() + 1
                 ).padStart(2, "0")}`;
 
-                const newDayStatus = !monthDays[dayNumber];
-
+                // Payload for single update: full month days with updated day (controller merges)
                 const payload = {
                     userId: userId,
                     month: formattedMonth,
                     days: {
                         ...monthDays,
-                        [dayNumber]: newDayStatus,
+                        [dayNumber]: dayMeals,
                     },
                 };
 
                 const response = await axiosInstance.post(`/tiffin/track/add`, payload);
 
+                // Optimistically update local state
                 setMonthDays((prevDays) => ({
                     ...prevDays,
-                    [dayNumber]: newDayStatus,
+                    [dayNumber]: dayMeals,
                 }));
 
-                fetchMonthData(currentMonth);
-                setDisableBtn(false);
+                // Refetch to get updated totals from backend
+                await fetchMonthData(currentMonth);
+                setShowModal(false);
             } else {
                 nav.push("/login");
                 setDisableBtn(true);
             }
-        } catch (error) {
-            setDisableBtn(true);
-            console.error("Error updating date:", error);
+        } catch (error: any) {
+            setDisableBtn(false);
+            console.error("Error updating meals:", error);
+            if (error.status === 403) {
+                localStorage.removeItem("token");
+                nav.push("/login");
+                toast({
+                    variant: "error",
+                    title: `Session Expired, Please login again`,
+                });
+            }
             toast({
                 variant: "error",
-                title: `Error updating date: ${error}`,
-            })
+                title: `Error updating meals: ${error}`,
+            });
         }
     };
 
@@ -173,14 +215,19 @@ export default function Timetable() {
         }
     };
 
-    const handleMonthChange = (newMonth: any) => {
+    const handleMonthChange = (newMonth: Date) => {
         setCurrentMonth(newMonth);
-        setMonthDays({});
+        // monthDays will be cleared and refetched in useEffect
     };
 
-    const getDayStatus = (day: any) => {
+    const getDayMealsCount = (day: Date) => {
+        if (!(day instanceof Date) || isNaN(day.getTime())) {
+            return 0;
+        }
         const dayNumber = String(day.getDate()).padStart(2, "0");
-        return monthDays[dayNumber];
+        const dayMeals = monthDays[dayNumber];
+        if (!dayMeals) return 0;
+        return Object.values(dayMeals).filter(Boolean).length;
     };
 
     const generatePayment = async () => {
@@ -221,56 +268,76 @@ export default function Timetable() {
             } else {
                 nav.push("/login");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error generating payment:", error);
             toast({
                 variant: "error",
                 title: `Error generating payment: ${error}`,
             });
         }
-    }
+    };
 
-    const fetchTiffinData = async () => {
-        try {
-            setDisableBtn(true);
-            const user = localStorage.getItem("user");
-            if (user) {
-                const parsedUser = JSON.parse(user);
-                const userId = parsedUser._id;
-                const response = await axiosInstance.get(`/tiffin/tiffin-bill/${userId}`);
-                const currentMonth = new Date().toISOString().slice(0, 7);
-                const currentMonthData = response.data?.find((item: any) => item.month === currentMonth) || null;
+    // Custom Calendar Logic
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-                if (currentMonthData) {
-                    setOrderId(currentMonthData.invoiceNumber);
-                    setDisableBtn(false);
-                    setPayableAmount(currentMonthData.vendor.amountPerDay);
-                    return currentMonthData.vendor.amountPerDay;
-                } else {
-                    console.warn("No data found for the current month");
-                    setDisableBtn(true);
-                    toast({
-                        variant: "warning",
-                        title: `No data found for this month`,
-                    });
-                    return 0;
-                }
-            } else {
-                setDisableBtn(true);
-                nav.push("/login");
-            }
-        } catch (error: any) {
-            console.error("Error fetching month data:", error);
-            setDisableBtn(true);
-            if (error.status === 403) {
-                nav.push("/login");
-            }
-            toast({
-                variant: "error",
-                title: `Error fetching month data: ${error}`,
-            });
-            return 0;
+    const getCalendarDays = (month: Date): Date[] => {
+        const year = month.getFullYear();
+        const mon = month.getMonth();
+        const firstDay = new Date(year, mon, 1);
+        const lastDay = new Date(year, mon + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        const startOffset = firstDay.getDay(); // 0 = Sun
+
+        const calendarDays: Date[] = [];
+
+        // Previous month days
+        const prevLastDay = new Date(year, mon, 0).getDate();
+        for (let i = startOffset - 1; i >= 0; i--) {
+            const date = new Date(year, mon - 1, prevLastDay - i);
+            date.setHours(0, 0, 0, 0);
+            calendarDays.push(date);
         }
+
+        // Current month days
+        for (let d = 1; d <= daysInMonth; d++) {
+            const date = new Date(year, mon, d);
+            date.setHours(0, 0, 0, 0);
+            calendarDays.push(date);
+        }
+
+        // Next month days to fill the grid
+        const totalDays = calendarDays.length;
+        const remaining = 7 - (totalDays % 7);
+        if (remaining !== 7) {
+            const nextFirst = new Date(year, mon + 1, 1);
+            nextFirst.setHours(0, 0, 0, 0);
+            for (let i = 0; i < remaining; i++) {
+                const date = new Date(nextFirst);
+                date.setDate(1 + i);
+                calendarDays.push(date);
+            }
+        }
+
+        return calendarDays;
+    };
+
+    const calendarDays = useMemo(() => getCalendarDays(currentMonth), [currentMonth]);
+    const weeks: Date[][] = useMemo(() => {
+        const w: Date[][] = [];
+        for (let i = 0; i < calendarDays.length; i += 7) {
+            w.push(calendarDays.slice(i, i + 7));
+        }
+        return w;
+    }, [calendarDays]);
+
+    const handlePrevMonth = () => {
+        const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+        handleMonthChange(prevMonth);
+    };
+
+    const handleNextMonth = () => {
+        const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+        handleMonthChange(nextMonth);
     };
 
     return (
@@ -283,30 +350,75 @@ export default function Timetable() {
                 <div className="bg-white shadow-md rounded-lg p-6">
                     <h2 className="text-lg font-semibold text-gray-700 mb-4">Attendance Calendar</h2>
                     <div className="w-full overflow-x-auto">
-                        <DayPicker
-                            mode="single"
-                            selected={date}
-                            onDayClick={(day) => {
-                                setDate(day);
-                                handleDayClick(day);
-                            }}
-                            disabled={disabledDays}
-                            onMonthChange={handleMonthChange}
-                            modifiersClassNames={{
-                                greenDay: "bg-green-400 text-white",
-                                redDay: "bg-red-400 text-white",
-                            }}
-                            modifiers={{
-                                greenDay: (day) => getDayStatus(day) === true,
-                                redDay: (day) => getDayStatus(day) === false,
-                            }}
-                            className="w-full sm:w-80 md:w-96 lg:w-full text-sm"
-                            styles={{
-                                caption: { fontSize: "1rem", textAlign: "center", marginBottom: "1rem" },
-                                day: { height: "2.5rem", width: "2.5rem" },
-                                month: { padding: "1rem" },
-                            }}
-                        />
+                        {/* Month Navigation */}
+                        <div className="flex justify-between items-center mb-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handlePrevMonth}
+                            >
+                                Previous
+                            </Button>
+                            <h3 className="text-lg font-semibold">
+                                {currentMonth.toLocaleString("default", { month: "long", year: "numeric" })}
+                            </h3>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleNextMonth}
+                            >
+                                Next
+                            </Button>
+                        </div>
+
+                        {/* Calendar Table */}
+                        <table className="w-full border-collapse text-sm">
+                            <thead>
+                                <tr className="text-gray-500">
+                                    {weekdays.map((day) => (
+                                        <th key={day} className="p-2 text-center font-medium">
+                                            {day}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {weeks.map((week, weekIndex) => (
+                                    <tr key={weekIndex}>
+                                        {week.map((day, dayIndex) => (
+                                            <td key={dayIndex} className="p-1">
+                                                {day ? (
+                                                    <button
+                                                        type="button"
+                                                        disabled={day > today}
+                                                        onClick={() => {
+                                                            if (day <= today) handleDayClick(day);
+                                                        }}
+                                                        className={`w-10 h-10 rounded-full mx-auto block relative text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:cursor-not-allowed ${day.getMonth() !== currentMonth.getMonth()
+                                                            ? "text-gray-400 bg-gray-100"
+                                                            : day > today
+                                                                ? "text-gray-400 bg-gray-100 opacity-50 cursor-not-allowed"
+                                                                : getDayMealsCount(day) > 1
+                                                                    ? "bg-green-500 text-white hover:bg-green-600"
+                                                                    : getDayMealsCount(day) === 1
+                                                                        ? "bg-yellow-500 text-white hover:bg-yellow-600"
+                                                                        : "bg-red-500 text-white hover:bg-red-600"
+                                                            }`}
+                                                    >
+                                                        {day.getDate()}
+                                                        {getDayMealsCount(day) > 0 && (
+                                                            <span className="absolute -top-1 -right-1 bg-black text-white text-xs rounded-full w-5 h-5 flex items-center justify-center shadow-md">
+                                                                {getDayMealsCount(day)}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                ) : null}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -318,23 +430,28 @@ export default function Timetable() {
                             <strong>Month:</strong> {currentMonth.toLocaleString("default", { month: "long" })} {currentMonth.getFullYear()}
                         </p>
                         <p className="text-sm text-gray-600">
-                            <strong>Total Days in Month:</strong> {Object.keys(monthDays).length}
+                            <strong>Total Meals in Month:</strong> {payableMeals}
                         </p>
                         <p className="text-sm text-gray-600">
-                            <strong>Payable Days:</strong> {payableDays}
+                            <strong>Rate per Meal:</strong> ₹{payableAmount}
                         </p>
                         <p className="text-xl font-bold text-green-600">
                             Total Amount: ₹{totalAmount}
                         </p>
+                        {orderId && (
+                            <p className="text-sm text-gray-600">
+                                <strong>Invoice Number:</strong> {orderId}
+                            </p>
+                        )}
                     </div>
                     <button disabled={disableBtn}
-                        className="w-full bg-green-500 text-white py-2 px-4 rounded-md shadow-lg hover:bg-green-600 transition-all"
+                        className="w-full bg-green-500 text-white py-2 px-4 rounded-md shadow-lg hover:bg-green-600 transition-all disabled:opacity-50"
                         onClick={generatePayment}
                     >
                         Pay Now
                     </button>
                     <button disabled={disableBtn}
-                        className="w-full bg-purple-500 text-white py-2 px-4 rounded-md shadow-lg hover:bg-purple-600 transition-all"
+                        className="w-full bg-purple-500 text-white py-2 px-4 rounded-md shadow-lg hover:bg-purple-600 transition-all disabled:opacity-50"
                         onClick={generatePdf}
                     >
                         Generate Bill
@@ -342,13 +459,44 @@ export default function Timetable() {
                 </div>
             </div>
 
+            {/* Meal Selection Modal */}
+            <Dialog open={showModal} onOpenChange={setShowModal}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Select Meals for {selectedDay?.toLocaleDateString()}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        {(["breakfast", "lunch", "dinner"] as MealType[]).map((meal) => (
+                            <div key={meal} className="flex items-center space-x-2">
+                                <Checkbox
+                                    id={meal}
+                                    checked={dayMeals[meal]}
+                                    onCheckedChange={(checked) => handleMealToggle(meal, !!checked)}
+                                />
+                                <Label htmlFor={meal} className="capitalize">
+                                    {meal}
+                                </Label>
+                            </div>
+                        ))}
+                        <div className="flex justify-end space-x-2 pt-4">
+                            <Button variant="outline" onClick={() => setShowModal(false)}>
+                                Cancel
+                            </Button>
+                            <Button onClick={saveDayMeals} disabled={disableBtn}>
+                                Save
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* Additional Info */}
             <div className="bg-white shadow-md rounded-lg p-6">
                 <h2 className="text-lg font-semibold text-gray-700 mb-4">How it Works</h2>
                 <ul className="list-disc pl-6 space-y-2 text-sm text-gray-600">
-                    <li>Click on a date to toggle attendance for that day.</li>
-                    <li>Green days indicate payable days, while red days are non-payable.</li>
-                    <li>The total payable amount is calculated based on ₹50 per day.</li>
+                    <li>Click on a date to select meals (Breakfast, Lunch, Dinner).</li>
+                    <li>Green/yellow/red days indicate multiple/single/no meals taken.</li>
+                    <li>The total payable amount is calculated based on ₹{payableAmount} per meal.</li>
                 </ul>
             </div>
         </div>
