@@ -52,7 +52,7 @@ exports.signin = async (req, res) => {
         const token = jwt.sign(
             { id: user._id, email: user.email },
             jwt_token,
-            { expiresIn: '1d' }
+            { expiresIn: '31d' }
         );
 
         res.status(200).json({ message: 'Signin successful.', token, user });
