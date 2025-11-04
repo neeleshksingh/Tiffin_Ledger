@@ -63,6 +63,7 @@ interface PageProps {
 
 export default function Profile({ params }: PageProps) {
     const [data, setData] = useState<UserData['data'] | null>(null);
+    const [selectedIndex, setSelectedIndex] = useState<number>(-1);
     const { toast } = useToast();
     const nav = useRouter();
     const resolvedParams = React.use(params);
@@ -102,12 +103,20 @@ export default function Profile({ params }: PageProps) {
         getUserData();
     }, [resolvedParams.id, nav, toast]);
 
-    const calculateTiffinAttendance = (tiffinOverview: TiffinOverview[] = []): string => {
-        if (!tiffinOverview || tiffinOverview.length === 0) return '0.00';
-        const { totalDays, tiffinTakenDays } = tiffinOverview[0];
+    useEffect(() => {
+        if (data?.tiffinOverview && selectedIndex === -1) {
+            setSelectedIndex(data.tiffinOverview.length - 1);
+        }
+    }, [data, selectedIndex]);
+
+    const calculateTiffinAttendance = (tiffinOverview: TiffinOverview | null): string => {
+        if (!tiffinOverview) return '0.00';
+        const { totalDays, tiffinTakenDays } = tiffinOverview;
         const attendancePercentage = (tiffinTakenDays / totalDays) * 100;
         return attendancePercentage.toFixed(2);
     };
+
+    const currentTiffinOverview = data?.tiffinOverview && selectedIndex >= 0 ? data.tiffinOverview[selectedIndex] : null;
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -120,7 +129,7 @@ export default function Profile({ params }: PageProps) {
                         maxWidthOrHeight: 800,
                         useWebWorker: true,
                     };
-    
+
                     const compressedFile = await ImageCompression(file, options);
                     await uploadImageToCloudinary(compressedFile);
                 } else {
@@ -136,19 +145,19 @@ export default function Profile({ params }: PageProps) {
             }
         }
     };
-    
+
     const uploadImageToCloudinary = async (file: File) => {
         try {
             const formData = new FormData();
             formData.append('profilePic', file);
             const userId = resolvedParams.id;
-    
+
             const response = await axiosInstance.post(`/profile-pic/upload-profile-pic/${userId}`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
             });
-    
+
             setData((prevData) => {
                 if (prevData) {
                     return {
@@ -170,6 +179,92 @@ export default function Profile({ params }: PageProps) {
             });
         }
     };
+
+    if (!data?.tiffinOverview || data.tiffinOverview.length === 0) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-6">
+                <div className="max-w-4xl mx-auto bg-white shadow-2xl rounded-2xl overflow-hidden">
+                    <div className="bg-gradient-to-br from-black via-gray-900 to-gray-800 p-6 text-center relative">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shine pointer-events-none"></div>
+                        <div className="relative w-32 h-32 mx-auto mb-4 z-10">
+                            <Image
+                                src={data?.user.profilePic || defaultPic}
+                                alt={data?.user.name || 'Profile Picture'}
+                                fill
+                                className="rounded-full object-cover border-4 border-white"
+                            />
+                            <label htmlFor="file-upload" className="absolute right-0 bottom-0 bg-blue-600 p-2 rounded-full cursor-pointer">
+                                <FaPen className="text-white" />
+                            </label>
+                            <input
+                                id="file-upload"
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                className="hidden"
+                            />
+                        </div>
+                        <h1 className="text-2xl font-bold text-white z-10">{data?.user?.name}</h1>
+                        <p className="text-blue-100 z-10">{data?.user?.email}</p>
+
+                        <div className="mt-4 flex flex-col sm:flex-row justify-center gap-4 z-10">
+                            <button
+                                onClick={() => nav.push('/dashboard/profile/profile-manage/' + resolvedParams.id)}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 transition-all w-full sm:w-auto"
+                            >
+                                Edit Profile
+                            </button>
+                            <button
+                                onClick={() => nav.push('/dashboard/vendor-preferences')}
+                                className="bg-green-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-green-700 transition-all w-full sm:w-auto"
+                            >
+                                Select Vendor Preferences
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="p-6 grid md:grid-cols-2 gap-6 z-10">
+                        <div className="bg-blue-50 p-4 rounded-lg">
+                            <h2 className="text-xl font-semibold mb-4 text-blue-800">Tiffin Service Details</h2>
+                            <div className="space-y-3">
+                                {[
+                                    { icon: FaRegBuilding, text: data?.vendor?.shopName },
+                                    { icon: FaMapMarkerAlt, text: data?.vendor?.address },
+                                    { icon: FaPhoneAlt, text: data?.vendor?.contactNumber },
+                                    { icon: FaCalendar, text: `₹${data?.vendor?.amountPerDay} per day` }
+                                ].map(({ icon: Icon, text }, index) => (
+                                    <div key={index} className="flex items-center">
+                                        <Icon className="mr-3 text-blue-600" />
+                                        <span>{text}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-green-50 p-4 rounded-lg">
+                            <h2 className="text-xl font-semibold mb-4 text-green-800">Tiffin Attendance</h2>
+                            <div>No tiffin overview available</div>
+                        </div>
+                    </div>
+                </div>
+                <style jsx>{`
+                    @keyframes shine {
+                        0% {
+                            transform: translateX(-100%);
+                        }
+                        100% {
+                            transform: translateX(100%);
+                        }
+                    }
+
+                    .animate-shine {
+                        animation: shine 8s linear infinite;
+                        background-size: 200% 100%;
+                    }
+                `}</style>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-6">
@@ -235,14 +330,32 @@ export default function Profile({ params }: PageProps) {
 
                     <div className="bg-green-50 p-4 rounded-lg">
                         <h2 className="text-xl font-semibold mb-4 text-green-800">Tiffin Attendance</h2>
-                        {data?.tiffinOverview && data.tiffinOverview.length > 0 ? (
+                        <div className="mb-4">
+                            <label className="text-sm font-medium text-gray-500 block mb-2">Select Month:</label>
+                            <select
+                                value={selectedIndex}
+                                onChange={(e) => setSelectedIndex(parseInt(e.target.value))}
+                                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                            >
+                                {data.tiffinOverview.map((overview, index) => {
+                                    const monthDate = new Date(`${overview.month}-01`);
+                                    const label = monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                                    return (
+                                        <option key={index} value={index}>
+                                            {label}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        </div>
+                        {currentTiffinOverview ? (
                             <div className="space-y-3">
                                 {[
-                                    { label: 'Total Days', value: data.tiffinOverview[0].totalDays },
-                                    { label: 'Tiffin Taken Days', value: data.tiffinOverview[0].tiffinTakenDays },
+                                    { label: 'Total Days', value: currentTiffinOverview.totalDays },
+                                    { label: 'Tiffin Taken Days', value: currentTiffinOverview.tiffinTakenDays },
                                     {
                                         label: 'Attendance Percentage',
-                                        value: `${calculateTiffinAttendance(data.tiffinOverview)}%`,
+                                        value: `${calculateTiffinAttendance(currentTiffinOverview)}%`,
                                         className: 'text-green-600'
                                     }
                                 ].map(({ label, value, className }) => (
@@ -253,11 +366,13 @@ export default function Profile({ params }: PageProps) {
                                 ))}
 
                                 <div className="mt-4">
-                                    <h3 className="text-lg font-semibold mb-2">Monthly Tiffin Calendar</h3>
+                                    <h3 className="text-lg font-semibold mb-2">
+                                        Tiffin Calendar for {new Date(`${currentTiffinOverview.month}-01`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                                    </h3>
                                     <div className="grid grid-cols-7 gap-1">
-                                        {Array.from({ length: 31 }, (_, i) => {
+                                        {Array.from({ length: currentTiffinOverview.totalDays }, (_, i) => {
                                             const dateString = (i + 1).toString().padStart(2, '0');
-                                            const dayInfo = data.tiffinOverview[0].days.find(day => day.date === dateString);
+                                            const dayInfo = currentTiffinOverview.days.find(day => day.date === dateString);
                                             return (
                                                 <div
                                                     key={dateString}
@@ -267,7 +382,7 @@ export default function Profile({ params }: PageProps) {
                                                         }`}
                                                     title={`Date: ${dateString}, Tiffin Taken: ${dayInfo?.isTiffinTaken || 'Not marked'}`}
                                                 >
-                                                    <span className="text-xs text-white flex items-center justify-center h-full">{dateString}</span>
+                                                    <span className="text-xs text-white flex items-center justify-center h-full">{i + 1}</span>
                                                 </div>
                                             );
                                         })}
@@ -275,7 +390,7 @@ export default function Profile({ params }: PageProps) {
                                 </div>
                             </div>
                         ) : (
-                            <div>No tiffin overview available</div>
+                            <div>No tiffin overview available for selected month</div>
                         )}
                     </div>
                 </div>
