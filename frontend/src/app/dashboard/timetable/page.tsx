@@ -41,7 +41,7 @@ export default function Timetable() {
                     const daysData = data.days || {};
                     const payableDays = Object.values(daysData).filter((day) => day === true).length;
                     setPayableDays(payableDays);
-                    setTotalAmount(payableDays * 50);
+                    setTotalAmount(payableDays * 60);
                     setMonthDays(daysData);
                     fetchTiffinData();
                 } else {
