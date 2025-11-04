@@ -16,6 +16,7 @@ export default function Timetable() {
     const nav = useRouter();
     const [totalAmount, setTotalAmount] = useState(0);
     const [payableDays, setPayableDays] = useState(0);
+    const [payableAmount, setPayableAmount] = useState(0);
     const { toast } = useToast();
     const [disableBtn, setDisableBtn] = useState(false);
     const [orderId, setOrderId] = useState('');
@@ -40,10 +41,10 @@ export default function Timetable() {
                 if (data) {
                     const daysData = data.days || {};
                     const payableDays = Object.values(daysData).filter((day) => day === true).length;
+                    const fetchedAmount = await fetchTiffinData();
                     setPayableDays(payableDays);
-                    setTotalAmount(payableDays * 60);
+                    setTotalAmount(payableDays * fetchedAmount);
                     setMonthDays(daysData);
-                    fetchTiffinData();
                 } else {
                     console.warn("No data found for the current month");
                     toast({
@@ -243,6 +244,8 @@ export default function Timetable() {
                 if (currentMonthData) {
                     setOrderId(currentMonthData.invoiceNumber);
                     setDisableBtn(false);
+                    setPayableAmount(currentMonthData.vendor.amountPerDay);
+                    return currentMonthData.vendor.amountPerDay;
                 } else {
                     console.warn("No data found for the current month");
                     setDisableBtn(true);
@@ -250,6 +253,7 @@ export default function Timetable() {
                         variant: "warning",
                         title: `No data found for this month`,
                     });
+                    return 0;
                 }
             } else {
                 setDisableBtn(true);
@@ -265,6 +269,7 @@ export default function Timetable() {
                 variant: "error",
                 title: `Error fetching month data: ${error}`,
             });
+            return 0;
         }
     };
 
