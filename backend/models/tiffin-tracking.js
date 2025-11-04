@@ -5,7 +5,10 @@ const tiffinTrackingSchema = new mongoose.Schema({
   month: { type: String, required: true },
   days: {
     type: Map,
-    of: Boolean,
+    of: {
+      type: Map,
+      of: Boolean,
+    },
     required: true,
   },
 });

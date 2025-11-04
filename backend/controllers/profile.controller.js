@@ -37,7 +37,6 @@ exports.getProfileById = async (req, res) => {
     const { userId } = req.params;
 
     try {
-
         const user = await User.findById(userId)
             .select('-password')
             .populate('messId');
@@ -48,18 +47,23 @@ exports.getProfileById = async (req, res) => {
         const tiffinTracking = await TiffinTracking.find({ userId });
 
         const tiffinOverview = tiffinTracking.map((tracking) => {
-            const daysArray = Array.from(tracking.days).map(([date, isTiffinTaken]) => ({
+            // Nested flatten: Array of {date, meals: {breakfast: bool, ...}}
+            const daysArray = Array.from(tracking.days.entries()).map(([date, meals]) => ({
                 date,
-                isTiffinTaken,
+                meals: Object.fromEntries(Array.from(meals.entries())),
             }));
 
-            const totalDays = daysArray.length;
-            const tiffinTakenDays = daysArray.filter((day) => day.isTiffinTaken).length;
+            const totalDays = tracking.days.size;
+            let totalMeals = 0;
+            daysArray.forEach(day => {
+                totalMeals += Object.values(day.meals).filter(Boolean).length;
+            });
 
             return {
                 month: tracking.month,
                 totalDays,
-                tiffinTakenDays,
+                totalMeals,
+                tiffinTakenDays: totalMeals,
                 days: daysArray,
             };
         });

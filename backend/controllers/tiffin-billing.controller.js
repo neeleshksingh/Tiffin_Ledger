@@ -1,7 +1,8 @@
+const mongoose = require('mongoose');
+const { ObjectId } = mongoose.Types;
 const User = require('../models/user');
 const TiffinTracking = require('../models/tiffin-tracking');
 const Bill = require('../models/bill');
-const mongoose = require('mongoose');
 
 const calculateTotalAmount = (daysCount, amountPerDay) => {
     return daysCount * amountPerDay;
@@ -23,13 +24,15 @@ const generateInvoiceNumber = async () => {
 
 const getUserTiffinAndBilling = async (req, res) => {
     try {
-        const { userId } = req.params;
+        let { userId } = req.params;
 
-        if (!mongoose.Types.ObjectId.isValid(userId)) {
+        if (!ObjectId.isValid(userId)) {
             return res.status(400).json({ message: 'Invalid user ID format' });
         }
 
-        const user = await User.findById(userId).populate('messId');
+        const parsedUserId = new ObjectId(userId);
+
+        const user = await User.findById(parsedUserId).populate('messId');
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -39,32 +42,43 @@ const getUserTiffinAndBilling = async (req, res) => {
             return res.status(404).json({ message: 'No vendor associated with this user' });
         }
 
-        const tiffinData = await TiffinTracking.find({ userId });
+        const tiffinData = await TiffinTracking.find({ userId: parsedUserId });
         if (!tiffinData || tiffinData.length === 0) {
             return res.status(204).json({ message: 'No tiffin tracking data found for this user' });
         }
 
-        const bills = await Bill.find({ userId }).sort({ createdAt: -1 });
+        const bills = await Bill.find({ userId: parsedUserId }).sort({ createdAt: -1 });
 
         const monthlyData = await Promise.all(tiffinData.map(async (tiffin) => {
             const month = tiffin.month;
 
-            let tiffinDaysCount = Array.from(tiffin.days.values()).filter(Boolean).length;
-            const totalAmount = calculateTotalAmount(tiffinDaysCount, vendor.amountPerDay);
+            let totalMeals = 0;
+            Array.from(tiffin.days.entries()).forEach(([dayKey, dayMeals]) => {
+                Array.from(dayMeals.entries()).forEach(([mealKey, mealTaken]) => {
+                    if (mealTaken) totalMeals++;
+                });
+            });
+
+            const totalAmount = calculateTotalAmount(totalMeals, vendor.amountPerMeal || vendor.amountPerDay);
 
             const invoiceNumber = await generateInvoiceNumber();
 
             const bill = bills.find(bill => bill.month === month);
             const billAmount = bill ? bill.totalAmount : totalAmount;
 
-            const allDays = Object.keys(tiffin.days).map(day => ({
-                date: day,
-                isTaken: tiffin.days[day]
-            }));
+            const allDays = Object.fromEntries(
+                Array.from(tiffin.days.entries()).map(([day, meals]) => [
+                    day,
+                    {
+                        date: day,
+                        meals: Object.fromEntries(Array.from(meals.entries()))
+                    }
+                ])
+            );
 
             return {
                 month: month,
-                tiffinDays: tiffinDaysCount,
+                tiffinMeals: totalMeals,
                 totalAmount: totalAmount,
                 billAmount: billAmount,
                 invoiceNumber: invoiceNumber,
@@ -74,7 +88,7 @@ const getUserTiffinAndBilling = async (req, res) => {
                     address: vendor.address,
                     contactNumber: vendor.contactNumber,
                     gstNumber: vendor.gstNumber,
-                    amountPerDay: vendor.amountPerDay,
+                    amountPerMeal: vendor.amountPerDay,
                     billingInfo: vendor.billingInfo,
                 },
                 days: allDays
