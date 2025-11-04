@@ -141,8 +141,8 @@ export default function Landing() {
                                 <p className="text-sm text-gray-500 font-roboto">View your vendor details</p>
                             </div>
                         </div>
-                        <div className="text-xl font-bold text-gray-800 font-poppins">Per Day Charge</div>
-                        <p className="text-sm text-gray-500 font-roboto"> ₹ {tiffinData?.vendor?.amountPerDay}</p>
+                        <div className="text-xl font-bold text-gray-800 font-poppins"> ₹ {tiffinData?.vendor?.amountPerMeal}</div>
+                        <p className="text-sm text-gray-500 font-roboto"> Per Meal Charge</p>
                     </div>
 
                     {/* Card 3 */}
