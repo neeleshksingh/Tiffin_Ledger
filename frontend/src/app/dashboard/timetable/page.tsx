@@ -47,7 +47,7 @@ export default function Timetable() {
 
                 const response = await axiosInstance.get(`/tiffin/tiffin-bill/${userId}`);
 
-                const data = response.data || [];  // Expect array of monthly data
+                const data = response.data || [];
                 const formattedMonth = `${month.getFullYear()}-${String(
                     month.getMonth() + 1
                 ).padStart(2, "0")}`;
@@ -119,7 +119,6 @@ export default function Timetable() {
             }
         };
 
-        // Initial check
         checkDayChange();
 
         const intervalId = setInterval(checkDayChange, 5 * 60 * 1000);
@@ -138,6 +137,10 @@ export default function Timetable() {
     }, [currentDayKey]);
 
     const handleDayClick = (selectedDate: Date) => {
+        if (selectedDate.getMonth() !== currentMonth.getMonth()) {
+            return;
+        }
+
         const dayNumber = String(selectedDate.getDate()).padStart(2, "0");
         const existingDayMeals = monthDays[dayNumber] || { breakfast: false, lunch: false, dinner: false };
         setDayMeals(existingDayMeals);
@@ -151,6 +154,15 @@ export default function Timetable() {
 
     const saveDayMeals = async () => {
         if (!selectedDay) return;
+
+        if (selectedDay.getMonth() !== currentMonth.getMonth()) {
+            toast({
+                variant: "warning",
+                title: "Cannot save for dates outside the current month.",
+            });
+            return;
+        }
+
         try {
             setDisableBtn(true);
             const user = localStorage.getItem("user");
@@ -250,6 +262,11 @@ export default function Timetable() {
         if (!(day instanceof Date) || isNaN(day.getTime())) {
             return 0;
         }
+
+        if (day.getMonth() !== currentMonth.getMonth()) {
+            return 0;
+        }
+
         const dayNumber = String(day.getDate()).padStart(2, "0");
         const dayMeals = monthDays[dayNumber];
         if (!dayMeals) return 0;
@@ -412,19 +429,24 @@ export default function Timetable() {
                                                 {day ? (
                                                     <button
                                                         type="button"
-                                                        disabled={day > today}
+                                                        disabled={
+                                                            day > today ||
+                                                            day.getMonth() !== currentMonth.getMonth()
+                                                        }
                                                         onClick={() => {
-                                                            if (day <= today) handleDayClick(day);
+                                                            if (day <= today && day.getMonth() === currentMonth.getMonth()) {
+                                                                handleDayClick(day);
+                                                            }
                                                         }}
                                                         className={`w-10 h-10 rounded-full mx-auto block relative text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:cursor-not-allowed ${day.getMonth() !== currentMonth.getMonth()
-                                                            ? "text-gray-400 bg-gray-100"
-                                                            : day > today
                                                                 ? "text-gray-400 bg-gray-100 opacity-50 cursor-not-allowed"
-                                                                : getDayMealsCount(day) > 1
-                                                                    ? "bg-green-500 text-white hover:bg-green-600"
-                                                                    : getDayMealsCount(day) === 1
-                                                                        ? "bg-yellow-500 text-white hover:bg-yellow-600"
-                                                                        : "bg-red-500 text-white hover:bg-red-600"
+                                                                : day > today
+                                                                    ? "text-gray-400 bg-gray-100 opacity-50 cursor-not-allowed"
+                                                                    : getDayMealsCount(day) > 1
+                                                                        ? "bg-green-500 text-white hover:bg-green-600"
+                                                                        : getDayMealsCount(day) === 1
+                                                                            ? "bg-yellow-500 text-white hover:bg-yellow-600"
+                                                                            : "bg-red-500 text-white hover:bg-red-600"
                                                             }`}
                                                     >
                                                         {day.getDate()}
