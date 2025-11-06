@@ -26,12 +26,16 @@ export default function Timetable() {
     const { toast } = useToast();
     const [disableBtn, setDisableBtn] = useState(false);
     const [orderId, setOrderId] = useState('');
+    const [currentDayKey, setCurrentDayKey] = useState(() => new Date().toDateString());
 
     const today = useMemo(() => {
         const t = new Date();
         t.setHours(0, 0, 0, 0);
+        t.setMinutes(0);
+        t.setSeconds(0);
+        t.setMilliseconds(0);
         return t;
-    }, []);
+    }, [currentDayKey]);
 
     const fetchMonthData = async (month: Date) => {
         try {
@@ -107,6 +111,32 @@ export default function Timetable() {
         fetchMonthData(currentMonth);
     }, [currentMonth]);
 
+    useEffect(() => {
+        const checkDayChange = () => {
+            const nowDay = new Date().toDateString();
+            if (nowDay !== currentDayKey) {
+                setCurrentDayKey(nowDay);
+            }
+        };
+
+        // Initial check
+        checkDayChange();
+
+        const intervalId = setInterval(checkDayChange, 5 * 60 * 1000);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                checkDayChange();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [currentDayKey]);
+
     const handleDayClick = (selectedDate: Date) => {
         const dayNumber = String(selectedDate.getDate()).padStart(2, "0");
         const existingDayMeals = monthDays[dayNumber] || { breakfast: false, lunch: false, dinner: false };
@@ -133,7 +163,6 @@ export default function Timetable() {
                     selectedDay.getMonth() + 1
                 ).padStart(2, "0")}`;
 
-                // Payload for single update: full month days with updated day (controller merges)
                 const payload = {
                     userId: userId,
                     month: formattedMonth,
@@ -145,13 +174,11 @@ export default function Timetable() {
 
                 const response = await axiosInstance.post(`/tiffin/track/add`, payload);
 
-                // Optimistically update local state
                 setMonthDays((prevDays) => ({
                     ...prevDays,
                     [dayNumber]: dayMeals,
                 }));
 
-                // Refetch to get updated totals from backend
                 await fetchMonthData(currentMonth);
                 setShowModal(false);
             } else {
@@ -217,7 +244,6 @@ export default function Timetable() {
 
     const handleMonthChange = (newMonth: Date) => {
         setCurrentMonth(newMonth);
-        // monthDays will be cleared and refetched in useEffect
     };
 
     const getDayMealsCount = (day: Date) => {
@@ -277,7 +303,6 @@ export default function Timetable() {
         }
     };
 
-    // Custom Calendar Logic
     const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     const getCalendarDays = (month: Date): Date[] => {
@@ -286,11 +311,10 @@ export default function Timetable() {
         const firstDay = new Date(year, mon, 1);
         const lastDay = new Date(year, mon + 1, 0);
         const daysInMonth = lastDay.getDate();
-        const startOffset = firstDay.getDay(); // 0 = Sun
+        const startOffset = firstDay.getDay();
 
         const calendarDays: Date[] = [];
 
-        // Previous month days
         const prevLastDay = new Date(year, mon, 0).getDate();
         for (let i = startOffset - 1; i >= 0; i--) {
             const date = new Date(year, mon - 1, prevLastDay - i);
@@ -298,14 +322,12 @@ export default function Timetable() {
             calendarDays.push(date);
         }
 
-        // Current month days
         for (let d = 1; d <= daysInMonth; d++) {
             const date = new Date(year, mon, d);
             date.setHours(0, 0, 0, 0);
             calendarDays.push(date);
         }
 
-        // Next month days to fill the grid
         const totalDays = calendarDays.length;
         const remaining = 7 - (totalDays % 7);
         if (remaining !== 7) {
