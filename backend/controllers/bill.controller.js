@@ -12,7 +12,12 @@ const generateBillPDF = async (req, res) => {
 
     try {
         const user = await User.findById(userId).populate('messId');
-        const tiffinTracking = await TiffinTracking.findOne({ userId, month: date.substring(0, 7) });
+        const vendorId = user?.messId?._id;
+        if (!user || !vendorId) {
+            return res.status(404).json({ message: "User or vendor not found" });
+        }
+        const month = date.substring(0, 7);
+        const tiffinTracking = await TiffinTracking.findOne({ userId, vendorId, month });
 
         if (!user || !tiffinTracking) {
             return res.status(404).json({ message: "User or Tiffin tracking data not found" });
@@ -33,46 +38,35 @@ const generateBillPDF = async (req, res) => {
             shopName: vendor.shopName
         };
 
-        // Collect all meals taken (nested)
-        const mealsTaken = [];
+        // Collect meals by day for calendar
+        const mealsByDay = new Map();
+        let totalMeals = 0;
         Array.from(tiffinTracking.days.entries()).forEach(([day, dayMeals]) => {
+            const takenMeals = [];
             Array.from(dayMeals.entries()).forEach(([mealType, taken]) => {
                 if (taken) {
-                    mealsTaken.push({ day, mealType });
+                    takenMeals.push(mealType.charAt(0).toUpperCase()); // B, L, D
+                    totalMeals++;
                 }
             });
+            if (takenMeals.length > 0) {
+                mealsByDay.set(day, takenMeals);
+            }
         });
 
-        if (mealsTaken.length === 0) {
+        if (totalMeals === 0) {
             return res.status(404).json({ message: "No meals found for this user." });
         }
 
-        // Sort by day, then meal order (breakfast, lunch, dinner)
-        const mealOrder = { breakfast: 1, lunch: 2, dinner: 3 };
-        const sortedMeals = mealsTaken.sort((a, b) => {
-            if (a.day !== b.day) return parseInt(a.day) - parseInt(b.day);
-            return (mealOrder[a.mealType] || 4) - (mealOrder[b.mealType] || 4);
-        });
-
-        const items = sortedMeals.map(({ day, mealType }) => {
-            const price = vendor.amountPerDay;  // Per meal
-            const amount = price * 1;
-            return {
-                name: `${mealType.charAt(0).toUpperCase() + mealType.slice(1)} on ${day.padStart(2, '0')}`,  // e.g., "Breakfast on 01"
-                quantity: 1,
-                price,
-                amount,
-            };
-        });
-
-        const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+        const pricePerMeal = vendor.amountPerDay; // Assuming amountPerDay is per meal
+        const totalAmount = totalMeals * pricePerMeal;
 
         // Default GST rate is 18% if not provided by vendor
         const gstRate = vendor.gstRate || 18;
         const gstAmount = (totalAmount * gstRate) / 100;
         const grandTotal = totalAmount + gstAmount;
 
-        // PDF generation (unchanged structure, but items now per-meal)
+        // PDF generation
         const doc = new PDFDocument({ size: 'A4', margin: 50 });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'attachment; filename="bill.pdf"');
@@ -85,46 +79,120 @@ const generateBillPDF = async (req, res) => {
 
         doc.moveDown(1);
 
-        // Billing Information (unchanged)
+        // Billing Information
         doc.fontSize(12).font('Helvetica-Bold').text('Billing Information:', { underline: true });
         doc.fontSize(12).font('Helvetica').text(`Customer Name: ${billingInfo.name}`);
         doc.text(`GSTIN: ${billingInfo.gstin}`);
         doc.text(`Shop Address: ${billingInfo.address}`);
         doc.text(`Shop Name: ${billingInfo.shopName}`);
 
-        doc.moveDown(2);
+        doc.moveDown(1.5);
 
-        // Table Header (unchanged)
-        const headerY = doc.y;
-        const headerX = 50;
+        // Summary Section
+        doc.fontSize(14).font('Helvetica-Bold').text('Billing Summary:', { underline: true });
+        doc.moveDown(0.5);
+        doc.fontSize(12).font('Helvetica').text(`Total Meals Taken: ${totalMeals}`);
+        doc.text(`Subtotal: Rs. ${totalAmount.toFixed(2)}`);
+        doc.text(`GST (${gstRate}%): Rs. ${gstAmount.toFixed(2)}`);
+        doc.fontSize(14).font('Helvetica-Bold').text(`Grand Total: Rs. ${grandTotal.toFixed(2)}`);
 
-        doc.fontSize(12).font('Helvetica-Bold').text('Description', headerX, headerY);
-        doc.text('Quantity', headerX + 200, headerY, { width: 100, align: 'center' });
-        doc.text('Price', headerX + 300, headerY, { width: 100, align: 'center' });
-        doc.text('Amount', headerX + 400, headerY, { width: 100, align: 'center' });
+        doc.moveDown(1.5);
 
-        // Draw table rows for each MEAL (may need wrapping if many)
-        let yPosition = headerY + 20;
+        // Calendar Section
+        doc.fontSize(12).font('Helvetica-Bold').text('Meals Taken Calendar:', { underline: true });
+        doc.moveDown(0.5);
 
-        items.forEach(item => {
-            doc.fontSize(10).font('Helvetica').text(item.name, headerX, yPosition, { width: 200, align: 'left' });
-            doc.text(item.quantity.toString(), headerX + 200, yPosition, { width: 100, align: 'center' });
-            doc.text(item.price.toString(), headerX + 300, yPosition, { width: 100, align: 'center' });
-            doc.text(item.amount.toString(), headerX + 400, yPosition, { width: 100, align: 'center' });
-            yPosition += 20;
+        // Calendar setup
+        const year = parseInt(month.substring(0, 4));
+        const mon = parseInt(month.substring(5, 7));
+        const firstDate = new Date(year, mon - 1, 1);
+        const firstDayOfWeek = firstDate.getDay(); // 0 = Sunday
+        const daysInMonth = new Date(year, mon, 0).getDate();
+        const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        // Calendar grid dimensions (larger cells to prevent overflow)
+        const cellWidth = 45;
+        const cellHeight = 35;
+        const startX = 50;
+        const startY = doc.y + 10;
+        const numRows = 6; // Max 6 weeks for any month
+
+        // Draw day headers (centered, bold, smaller font)
+        daysOfWeek.forEach((day, col) => {
+            const textX = startX + col * cellWidth + (cellWidth / 2 - (day.length * 2.5));
+            doc.fontSize(8).font('Helvetica-Bold').text(day, textX, startY + 3);
         });
 
-        // Draw the totals (unchanged)
-        doc.moveDown(1);
-        doc.fontSize(12).font('Helvetica-Bold').text(`Total Amount: ${totalAmount}`, headerX, yPosition + 20);
-        doc.text(`GST (${gstRate}%): ${gstAmount}`, headerX, yPosition + 40);
-        doc.text(`Grand Total: ${grandTotal}`, headerX, yPosition + 60);
+        let gridY = startY + cellHeight; // Grid starts after header
 
-        // Footer (unchanged)
-        const footerY = yPosition + 80;
-        doc.moveTo(50, footerY)
-            .lineTo(550, footerY)
-            .stroke();
+        // Draw grid lines
+        // Header underline
+        doc.moveTo(startX, startY + cellHeight).lineTo(startX + 7 * cellWidth, startY + cellHeight).stroke();
+
+        // Vertical lines for all columns
+        for (let col = 0; col <= 7; col++) {
+            doc.moveTo(startX + col * cellWidth, startY).lineTo(startX + col * cellWidth, gridY + numRows * cellHeight).stroke();
+        }
+
+        // Horizontal lines for grid rows (header + 6 rows)
+        for (let row = 0; row <= numRows + 1; row++) {
+            const yLine = startY + row * cellHeight;
+            doc.moveTo(startX, yLine).lineTo(startX + 7 * cellWidth, yLine).stroke();
+        }
+
+        // Fill calendar cells
+        let currentDay = 1;
+        let col = firstDayOfWeek; // Start from the correct column
+        let row = 0;
+
+        while (currentDay <= daysInMonth) {
+            const cellX = startX + col * cellWidth + 2;
+            const cellY = gridY + row * cellHeight + 2;
+
+            const dayStr = currentDay.toString().padStart(2, '0');
+            const takenMeals = mealsByDay.get(dayStr) || [];
+            let cellText = currentDay.toString();
+
+            if (takenMeals.length > 0) {
+                // Compact: Day on top, then abbreviated meals (e.g., "B L D")
+                const mealsStr = takenMeals.join(' ');
+                cellText = `${currentDay}\n${mealsStr}`;
+                // Light blue background for contrast
+                doc.fillColor('#e3f2fd').rect(startX + col * cellWidth + 1, gridY + row * cellHeight + 1, cellWidth - 2, cellHeight - 2).fill();
+            }
+
+            // Reset to black text
+            doc.fillColor('black');
+            // Smaller font and tight width to fit
+            doc.fontSize(7).font('Helvetica')
+                .text(cellText, cellX, cellY, {
+                    width: cellWidth - 6,
+                    align: 'center',
+                    lineGap: 1
+                });
+
+            currentDay++;
+            col++;
+            if (col === 7) {
+                col = 0;
+                row++;
+            }
+        }
+
+        // Legend
+        doc.moveDown(3);
+        doc.fontSize(10).font('Helvetica-Bold').text('Legend:', 50, doc.y);
+        doc.moveDown(0.5);
+        doc.fontSize(9).font('Helvetica').text('B = Breakfast, L = Lunch, D = Dinner', 50, doc.y);
+        doc.text('Highlighted cells indicate days with meals taken.', 50, doc.y + 15);
+
+        // Footer
+        let footerY = doc.y + 80;
+        if (footerY > doc.page.height - 100) {
+            doc.addPage();
+            footerY = 80;
+        }
+        doc.moveTo(50, footerY).lineTo(550, footerY).stroke();
 
         doc.fontSize(8).font('Helvetica').text('Thank you for your business!', 50, footerY + 10);
         doc.text('For any inquiries, contact us at support@tiffinservice.com', 50, footerY + 20);

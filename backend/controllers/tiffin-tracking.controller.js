@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Types;
 const TiffinTracking = require('../models/tiffin-tracking');
+const User = require('../models/user');
 
 const convertDaysToNestedMap = (daysObj) => {
   const daysMap = new Map();
@@ -38,17 +39,26 @@ exports.updateTracking = async (req, res) => {
   }
 
   try {
+    // Fetch user to get current vendorId
+    const user = await User.findById(parsedUserId).select('messId');
+    if (!user || !user.messId) {
+      return res.status(400).json({ message: 'User not found or no vendor assigned. Assign a vendor first.' });
+    }
+    const vendorId = user.messId;
+
     const daysMap = convertDaysToNestedMap(incomingDays);
 
-    let tiffinTracking = await TiffinTracking.findOne({ userId: parsedUserId, month });
+    let tiffinTracking = await TiffinTracking.findOne({ userId: parsedUserId, vendorId, month });
 
     if (!tiffinTracking) {
       tiffinTracking = new TiffinTracking({
         userId: parsedUserId,
+        vendorId, // Use the fetched vendorId
         month,
         days: daysMap,
       });
     } else {
+      // Merge logic (unchanged, but now scoped to vendor)
       for (const [day, mealsObj] of Object.entries(incomingDays)) {
         if (!tiffinTracking.days.has(day)) {
           tiffinTracking.days.set(day, new Map());
@@ -65,7 +75,7 @@ exports.updateTracking = async (req, res) => {
 
     await tiffinTracking.save();
 
-    const savedFetched = await TiffinTracking.findById(tiffinTracking._id).populate('userId', 'name email');
+    const savedFetched = await TiffinTracking.findById(tiffinTracking._id).populate('userId', 'name email').populate('vendorId', 'shopName');
     const responseData = {
       ...savedFetched.toObject(),
       days: flattenDaysForResponse(savedFetched.days)
@@ -93,6 +103,12 @@ exports.updateMultipleTracking = async (req, res) => {
   }
 
   try {
+    const user = await User.findById(parsedUserId).select('messId');
+    if (!user || !user.messId) {
+      return res.status(400).json({ message: 'User not found or no vendor assigned. Assign a vendor first.' });
+    }
+    const vendorId = user.messId;
+
     const results = [];
     const errors = [];
 
@@ -107,11 +123,12 @@ exports.updateMultipleTracking = async (req, res) => {
       try {
         const daysMap = convertDaysToNestedMap(incomingDays);
 
-        let tiffinTracking = await TiffinTracking.findOne({ userId: parsedUserId, month });
+        let tiffinTracking = await TiffinTracking.findOne({ userId: parsedUserId, vendorId, month });
 
         if (!tiffinTracking) {
           tiffinTracking = new TiffinTracking({
             userId: parsedUserId,
+            vendorId,
             month,
             days: daysMap,
           });
@@ -177,15 +194,22 @@ exports.getTrackingData = async (req, res) => {
   }
 
   try {
-    const query = { userId: parsedUserId };
+    const user = await User.findById(parsedUserId).select('messId');
+    if (!user || !user.messId) {
+      return res.status(400).json({ message: 'User not found or no vendor assigned.' });
+    }
+    const vendorId = user.messId;
+
+    const query = { userId: parsedUserId, vendorId };
     if (month) query.month = month;
 
     const tiffinTracking = await TiffinTracking.find(query)
       .populate('userId', 'name email')
+      .populate('vendorId', 'shopName')
       .exec();
 
     if (!tiffinTracking || tiffinTracking.length === 0) {
-      return res.status(200).json({ message: 'No data found for the given userId (and optional month).' });
+      return res.status(200).json({ message: 'No data found for the given userId (and optional month) with current vendor.' });
     }
 
     const processedData = tiffinTracking.map(tracking => ({

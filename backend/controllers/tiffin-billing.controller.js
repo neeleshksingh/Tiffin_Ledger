@@ -42,7 +42,7 @@ const getUserTiffinAndBilling = async (req, res) => {
             return res.status(404).json({ message: 'No vendor associated with this user' });
         }
 
-        const tiffinData = await TiffinTracking.find({ userId: parsedUserId });
+        const tiffinData = await TiffinTracking.find({ userId: parsedUserId, vendorId: vendor._id });
         if (!tiffinData || tiffinData.length === 0) {
             return res.status(204).json({ message: 'No tiffin tracking data found for this user' });
         }
