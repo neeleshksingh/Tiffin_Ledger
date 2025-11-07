@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import axiosInstance from "@components/interceptors/axios.interceptor";
 import { useRouter } from "next/navigation";
 import { useToast } from "@components/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ type MealType = "breakfast" | "lunch" | "dinner";
 type DayMeals = Record<MealType, boolean>;
 type MonthDays = Record<string, DayMeals>;
 
-export default function Timetable() {
+export default function Timetable({ userData }: { userData: any }) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [monthDays, setMonthDays] = useState<MonthDays>({});
     const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -35,6 +35,15 @@ export default function Timetable() {
     const [disableBtn, setDisableBtn] = useState(false);
     const [orderId, setOrderId] = useState('');
     const [currentDayKey, setCurrentDayKey] = useState(() => new Date().toDateString());
+
+    const availableMeals = useMemo(() => {
+        return (userData?.messId?.availableMealTypes || []) as MealType[];
+    }, [userData]);
+
+    const defaultDayMeals = useMemo(() =>
+        availableMeals.reduce((acc, meal) => ({ ...acc, [meal]: false }), {} as DayMeals),
+        [availableMeals]
+    );
 
     const today = useMemo(() => {
         const t = new Date();
@@ -66,7 +75,7 @@ export default function Timetable() {
                     const flattenedDays: MonthDays = {};
                     const backendDays = currentMonthData.days || {};
                     Object.entries(backendDays).forEach(([dayKey, dayObj]: [string, any]) => {
-                        flattenedDays[dayKey] = dayObj.meals || { breakfast: false, lunch: false, dinner: false };
+                        flattenedDays[dayKey] = { ...defaultDayMeals, ...(dayObj.meals || {}) };
                     });
 
                     setMonthDays(flattenedDays);
@@ -79,7 +88,6 @@ export default function Timetable() {
                     setOrderId(currentMonthData.invoiceNumber);
                     setPayableAmount(currentMonthData.vendor.amountPerMeal || currentMonthData.vendor.amountPerDay);
                 } else {
-                    console.warn("No data found for the current month");
                     toast({
                         variant: "warning",
                         title: `No data found for this ${formattedMonth} month`,
@@ -100,7 +108,6 @@ export default function Timetable() {
                 setDisableBtn(true);
             }
         } catch (error: any) {
-            console.error("Error fetching month data:", error);
             setDisableBtn(false);
             if (error.status === 403) {
                 localStorage.removeItem("token");
@@ -161,7 +168,11 @@ export default function Timetable() {
         }
 
         const dayNumber = String(selectedDate.getDate()).padStart(2, "0");
-        const existingDayMeals = monthDays[dayNumber] || { breakfast: false, lunch: false, dinner: false };
+        const backendMeals = monthDays[dayNumber] || {};
+        const existingDayMeals = availableMeals.reduce((acc, meal) => {
+            acc[meal] = backendMeals[meal] ?? false;
+            return acc;
+        }, {} as DayMeals);
         setDayMeals(existingDayMeals);
         setSelectedDay(selectedDate);
         setShowMealModal(true);
@@ -218,7 +229,6 @@ export default function Timetable() {
             }
         } catch (error: any) {
             setDisableBtn(false);
-            console.error("Error updating meals:", error);
             if (error.status === 403) {
                 localStorage.removeItem("token");
                 nav.push("/login");
@@ -271,7 +281,6 @@ export default function Timetable() {
             }
         } catch (error: any) {
             setDisableBtn(false);
-            console.error("Error marking paid range:", error);
             if (error.status === 403) {
                 localStorage.removeItem("token");
                 nav.push("/login");
@@ -318,7 +327,6 @@ export default function Timetable() {
                 nav.push("/login");
             }
         } catch (error: any) {
-            console.error("Error generating PDF:", error);
             toast({
                 variant: "error",
                 title: `Error generating PDF: ${error}`,
@@ -385,7 +393,6 @@ export default function Timetable() {
                 nav.push("/login");
             }
         } catch (error: any) {
-            console.error("Error generating payment:", error);
             toast({
                 variant: "error",
                 title: `Error generating payment: ${error}`,
@@ -603,13 +610,14 @@ export default function Timetable() {
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>Select Meals for {selectedDay?.toLocaleDateString()}</DialogTitle>
+                        <DialogDescription>Choose which meals you attended on this day.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
-                        {(["breakfast", "lunch", "dinner"] as MealType[]).map((meal) => (
+                        {availableMeals.map((meal) => (
                             <div key={meal} className="flex items-center space-x-2">
                                 <Checkbox
                                     id={meal}
-                                    checked={dayMeals[meal]}
+                                    checked={dayMeals[meal] ?? false}
                                     onCheckedChange={(checked) => handleMealToggle(meal, !!checked)}
                                 />
                                 <Label htmlFor={meal} className="capitalize">
@@ -634,6 +642,7 @@ export default function Timetable() {
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>Mark Paid Range</DialogTitle>
+                        <DialogDescription>Specify the start and end days to mark all taken meals in the range as paid.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
@@ -658,7 +667,6 @@ export default function Timetable() {
                                 maxLength={2}
                             />
                         </div>
-                        <p className="text-sm text-gray-500">This will mark all taken meals in the range as paid.</p>
                         <DialogFooter>
                             <Button variant="outline" onClick={() => setShowPaidRangeModal(false)}>
                                 Cancel
@@ -675,7 +683,7 @@ export default function Timetable() {
             <div className="bg-white shadow-md rounded-lg p-6">
                 <h2 className="text-lg font-semibold text-gray-700 mb-4">How it Works</h2>
                 <ul className="list-disc pl-6 space-y-2 text-sm text-gray-600">
-                    <li>Click on a date to select meals (Breakfast, Lunch, Dinner).</li>
+                    <li>Click on a date to select meals ({availableMeals.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ')}).</li>
                     <li>Green/yellow/red days indicate multiple/single/no meals taken.</li>
                     <li>Use "Mark Paid Range" to record partial/full month payments.</li>
                     <li>The pending amount is calculated based on unpaid taken meals at ₹{payableAmount} per meal.</li>

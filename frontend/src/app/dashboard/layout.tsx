@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
     const getComponentForRoute = () => {
         if (pathname === "/dashboard") return <Landing />;
-        if (pathname === "/dashboard/timetable") return <Timetable />;
+        if (pathname === "/dashboard/timetable") return <Timetable userData={userData} />;
 
         return children;
     };
@@ -112,7 +112,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             closeSidebar();
             router.push('/login');
         } catch (error) {
-            console.error('Logout error:', error);
             closeSidebar();
             router.push('/login');
         }
