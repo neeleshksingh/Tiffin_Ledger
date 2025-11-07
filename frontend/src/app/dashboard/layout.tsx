@@ -1,13 +1,13 @@
 "use client";
 import { ReactNode } from "react";
-import { useState, useRef, useEffect, JSX } from "react";
+import { useState, useRef, useEffect } from "react";
 import MenuIcon from "../../../public/assets/menu.png";
 import Logo from "../../../public/assets/logo.png";
 import Profile from "../../../public/assets/profile.png";
 import Image from 'next/image';
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
-import { FaTachometerAlt, FaCog, FaBell, FaSignOutAlt, FaCalendarAlt } from "react-icons/fa";
+import { FaTachometerAlt, FaBell, FaSignOutAlt, FaCalendarAlt } from "react-icons/fa";
 import Timetable from "./timetable/page";
 import Link from "next/link";
 import Landing from "./page";
@@ -20,7 +20,6 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from "@components/components/ui/alert-dialog"
 import axiosInstance from "@components/interceptors/axios.interceptor";
 import { useToast } from "@components/hooks/use-toast";
@@ -39,6 +38,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     const { toast } = useToast();
     const nav = useRouter();
     const [userId, setUserId] = useState<string | null>(null);
+
+    const closeSidebar = () => setIsSidebarOpen(false);
 
     const getComponentForRoute = () => {
         if (pathname === "/dashboard") return <Landing />;
@@ -78,7 +79,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         setUserName(userDetails.name || 'Guest');
     }, []);
 
-    // Close sidebar when clicking outside
+
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
@@ -108,9 +109,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         try {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            closeSidebar();
             router.push('/login');
         } catch (error) {
             console.error('Logout error:', error);
+            closeSidebar();
             router.push('/login');
         }
     };
@@ -146,6 +149,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                                 <li>
                                     <Link
                                         href="/dashboard"
+                                        onClick={closeSidebar}
                                         className={`rounded-lg hover:bg-white hover:shadow-md p-3 block transition ${pathname === "/dashboard" ? "bg-white shadow-md" : ""
                                             }`}
                                     >
@@ -156,6 +160,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                                 <li>
                                     <Link
                                         href="/dashboard/timetable"
+                                        onClick={closeSidebar}
                                         className={`rounded-lg hover:bg-white hover:shadow-md p-3 block transition ${pathname === "/dashboard/timetable"
                                             ? "bg-white shadow-md"
                                             : ""
@@ -168,6 +173,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                                 <li>
                                     <Link
                                         href="/dashboard/notifications"
+                                        onClick={closeSidebar}
                                         className={`rounded-lg hover:bg-white hover:shadow-md p-3 block transition ${pathname === "/dashboard/notifications"
                                             ? "bg-white shadow-md"
                                             : ""
@@ -183,6 +189,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                         <div>
                             <div className="border-t pt-6">
                                 <div onClick={() => {
+                                    closeSidebar();
                                     if (userId) {
                                         nav.push(`/dashboard/profile/${userId}`);
                                     }
@@ -205,7 +212,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                                 </div>
 
                                 <div
-                                    onClick={() => setIsLogoutDialogOpen(true)}
+                                    onClick={() => {
+                                        closeSidebar(); // Close on mobile before opening dialog
+                                        setIsLogoutDialogOpen(true);
+                                    }}
                                     className="flex items-center gap-2 rounded-lg hover:bg-red-100 p-3 cursor-pointer transition-all duration-200 text-red-600 hover:shadow-md"
                                 >
                                     <FaSignOutAlt className="text-lg" />

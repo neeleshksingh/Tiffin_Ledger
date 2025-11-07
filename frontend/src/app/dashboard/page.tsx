@@ -5,25 +5,60 @@ import PieChartComponent from "@components/components/pieChart";
 import { useToast } from "@components/hooks/use-toast";
 import axiosInstance from "@components/interceptors/axios.interceptor";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 export default function Landing() {
+    const [allMonths, setAllMonths] = useState<any[]>([]);
     const [tiffinData, setTiffinData] = useState<any>(null);
+    const [takenDays, setTakenDays] = useState(0);
     const { toast } = useToast();
     const nav = useRouter();
-    const [transformedDays, setTransformedDays] = useState<any>([]);
+    const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
     const [upcomingMeal, setUpcomingMeal] = useState<any>(null);
 
-    const transformDaysData = (tiffinData: any) => {
-        if (tiffinData && tiffinData.days && tiffinData.days[0] && tiffinData.days[0].isTaken) {
-            const days = tiffinData.days[0].isTaken.days;
-            return Object.keys(days).map(day => ({
-                name: day,
-                isTaken: days[day]
-            }));
+    const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []);
+
+    const transformDaysData = (monthData: any) => {
+        if (monthData && monthData.days) {
+            return Object.keys(monthData.days).map((dayKey) => {
+                const day = monthData.days[dayKey];
+                const isTaken = day.meals.breakfast || day.meals.lunch || day.meals.dinner;
+                return {
+                    name: day.date.padStart(2, '0'),
+                    value: isTaken ? 1 : 0
+                };
+            }).sort((a, b) => parseInt(a.name, 10) - parseInt(b.name, 10));
         }
         return [];
     };
+
+    const getChartData = useMemo(() => {
+        let chartData: { name: string; value: number }[] = [];
+        let computedTakenDays = 0;
+
+        const currentMonthData = allMonths.find((item: any) => item.month === currentMonth);
+
+        if (viewMode === 'monthly' && currentMonthData) {
+            chartData = transformDaysData(currentMonthData);
+            computedTakenDays = chartData.filter((d) => d.value > 0).length;
+        } else {
+            // Yearly view
+            chartData = allMonths
+                .map((month: any) => {
+                    const monthDate = new Date(`${month.month}-01`);
+                    const monthName = monthDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                    return {
+                        name: monthName,
+                        value: month.tiffinMeals
+                    };
+                })
+                .sort((a, b) => new Date(`${a.name}-01`).getTime() - new Date(`${b.name}-01`).getTime());
+            computedTakenDays = allMonths.reduce((sum: number, m: any) => sum + m.tiffinMeals, 0);
+        }
+
+        setTakenDays(computedTakenDays); // For monthly; for yearly, we can repurpose or add separate state if needed
+        return chartData;
+    }, [allMonths, viewMode, currentMonth]);
 
     const fetchTiffinData = async () => {
         try {
@@ -33,21 +68,16 @@ export default function Landing() {
                 const userId = parsedUser._id;
                 const response = await axiosInstance.get(`/tiffin/tiffin-bill/${userId}`);
                 if (response && response.data && response.data.length > 0) {
-                    const currentMonth = new Date().toISOString().slice(0, 7);
-                    const currentMonthData = response?.data?.find((item: any) => item.month === currentMonth) || null;
+                    setAllMonths(response.data);
+
+                    const currentMonthData = response.data.find((item: any) => item.month === currentMonth) || null;
 
                     if (currentMonthData) {
+                        setTiffinData(currentMonthData);
                         const transformedDays = transformDaysData(currentMonthData);
-
-                        setTransformedDays(transformedDays);
-
-                        setTiffinData({
-                            ...currentMonthData,
-                            days: transformedDays
-                        });
-
+                        const computedTakenDays = transformedDays.filter((d: any) => d.value > 0).length;
+                        setTakenDays(computedTakenDays);
                         getUpComingMeal(currentMonthData.vendor.id);
-
                     } else {
                         console.warn("No data found for the current month");
                         toast({
@@ -56,7 +86,6 @@ export default function Landing() {
                         });
                     }
                 }
-
             } else {
                 nav.push("/login");
             }
@@ -70,7 +99,7 @@ export default function Landing() {
     };
 
     const getUpComingMeal = async (vendorId?: string) => {
-        const today = new Date();
+        const todayStr = new Date().toISOString().split("T")[0];
         try {
             const user = localStorage.getItem("user");
             if (user) {
@@ -79,18 +108,14 @@ export default function Landing() {
 
                 console.log("Upcoming meal response:", meals);
 
-                // Get today's date in YYYY-MM-DD format
-                const today = new Date().toISOString().split("T")[0];
-
                 // Find meal matching today's date
-                const todayMeal = meals.find((meal: any) => meal.date.split("T")[0] === today);
+                const todayMeal = meals.find((meal: any) => meal.date.split("T")[0] === todayStr);
 
                 if (todayMeal) {
                     setUpcomingMeal(todayMeal);
                 } else {
                     setUpcomingMeal(null);
                 }
-
             } else {
                 nav.push("/login");
             }
@@ -100,14 +125,21 @@ export default function Landing() {
                 variant: "error",
                 title: `Error fetching upcoming meal: ${error}`,
             });
-
         }
-    }
-
+    };
 
     useEffect(() => {
         fetchTiffinData();
     }, []);
+
+    const totalYearlyMeals = useMemo(() => allMonths.reduce((sum: number, m: any) => sum + m.tiffinMeals, 0), [allMonths]);
+
+    const isMonthlyView = viewMode === 'monthly';
+    const totalConsumption = isMonthlyView ? takenDays : totalYearlyMeals;
+    const consumptionUnit = isMonthlyView ? 'days' : 'meals';
+    const averageConsumption = isMonthlyView
+        ? (takenDays / Math.min(new Date().getDate(), new Date(tiffinData?.month + '-01').getDate() || 1)).toFixed(1)
+        : (totalYearlyMeals / allMonths.length).toFixed(1);
 
     return (
         <>
@@ -121,8 +153,8 @@ export default function Landing() {
                                 <svg className="h-8 w-8 text-[#1D9B8B]" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg>
                             </div>
                             <div>
-                                <h3 className="text-xl font-semibold text-gray-800 font-poppins">Tiffin days this month</h3>
-                                <p className="text-sm text-gray-500 font-roboto">You have had tiffin for {tiffinData?.tiffinDays} days</p>
+                                <h3 className="text-xl font-semibold text-gray-800 font-poppins">Tiffin {consumptionUnit} this month</h3>
+                                <p className="text-sm text-gray-500 font-roboto">You have had tiffin for {takenDays} {isMonthlyView ? 'days' : 'meals'}</p>
                             </div>
                         </div>
                         <div className="text-xl font-bold text-gray-800 font-poppins"> ₹ {tiffinData?.billAmount}</div>
@@ -194,21 +226,45 @@ export default function Landing() {
 
                         {/* Card 1: Bar Chart */}
                         <div className="bg-white shadow-lg rounded-xl p-8 space-y-4">
-                            <h2 className="text-2xl font-semibold text-gray-800">
-                                Tiffin Consumption Overview
-                            </h2>
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-2xl font-semibold text-gray-800">
+                                    Tiffin Consumption Overview
+                                </h2>
+                                <div className="flex space-x-2">
+                                    <button
+                                        onClick={() => setViewMode('monthly')}
+                                        className={`px-4 py-2 rounded-lg font-medium transition ${viewMode === 'monthly'
+                                            ? 'bg-blue-500 text-white'
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                            }`}
+                                    >
+                                        Monthly
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode('yearly')}
+                                        className={`px-4 py-2 rounded-lg font-medium transition ${viewMode === 'yearly'
+                                            ? 'bg-blue-500 text-white'
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                            }`}
+                                    >
+                                        Yearly
+                                    </button>
+                                </div>
+                            </div>
                             <p className="text-sm text-gray-500">
-                                Your tiffin consumption over the past month. This helps you understand your daily usage trends.
+                                {isMonthlyView
+                                    ? 'Your tiffin consumption over the past month. This helps you understand your daily usage trends.'
+                                    : 'Your tiffin consumption over the past year. This helps you understand your monthly usage trends.'}
                             </p>
                             <div className="border-t-2 border-gray-200 pt-4">
                                 <div className="text-xl font-bold text-gray-800">
-                                    Total Consumption: 15 days
+                                    Total Consumption: {totalConsumption} {consumptionUnit}
                                 </div>
                                 <p className="text-sm text-gray-500">
-                                    Average daily consumption: 0.5 meals/day
+                                    Average {isMonthlyView ? 'daily' : 'monthly'} consumption: {averageConsumption} {consumptionUnit}/{isMonthlyView ? 'day' : 'month'}
                                 </p>
                                 <div className="mt-6">
-                                    <BarChartComponent data={transformedDays || []} />
+                                    <BarChartComponent data={getChartData} />
                                 </div>
                             </div>
                         </div>
@@ -237,7 +293,7 @@ export default function Landing() {
                             <p className="text-sm text-gray-500">Here’s a detailed look at your daily tiffin usage for this month.</p>
 
                             <div className="border-t-2 border-gray-200 pt-4">
-                                <div className="text-xl font-bold text-gray-800">Total Days with Tiffin: 15</div>
+                                <div className="text-xl font-bold text-gray-800">Total Days with Tiffin: {takenDays}</div>
                                 <p className="text-sm text-gray-500">Your daily consumption summary:</p>
                                 <div className="mt-4">
                                     <table className="min-w-full table-auto">
