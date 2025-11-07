@@ -56,7 +56,7 @@ export default function Landing() {
             computedTakenDays = allMonths.reduce((sum: number, m: any) => sum + m.tiffinMeals, 0);
         }
 
-        setTakenDays(computedTakenDays); // For monthly; for yearly, we can repurpose or add separate state if needed
+        setTakenDays(computedTakenDays);
         return chartData;
     }, [allMonths, viewMode, currentMonth]);
 
@@ -188,8 +188,8 @@ export default function Landing() {
                                 <p className="text-sm text-gray-500 font-roboto">Overview of payments and dues</p>
                             </div>
                         </div>
-                        <div className="text-xl font-bold text-gray-800 font-poppins">$250 Paid</div>
-                        <p className="text-sm text-gray-500 font-roboto">Pending Dues: $50</p>
+                        <div className="text-xl font-bold text-gray-800 font-poppins">₹ {tiffinData?.paidAmount || 0} Paid</div>
+                        <p className="text-sm text-gray-500 font-roboto">Pending Dues: ₹ {tiffinData?.pendingAmount || 0}</p>
                     </div>
 
                     {/* Card 4 */}

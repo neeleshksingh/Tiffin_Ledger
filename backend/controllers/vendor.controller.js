@@ -14,7 +14,7 @@ const getVendors = async (req, res) => {
 
 const assignVendorToUser = async (req, res) => {
     try {
-        const { userId, messId } = req.body;
+        const { userId, messId, preferredMealTypes } = req.body;
 
         const vendor = await Vendor.findById(messId);
         if (!vendor) {
@@ -26,8 +26,22 @@ const assignVendorToUser = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        if (preferredMealTypes && preferredMealTypes.length > 0) {
+            const invalidTypes = preferredMealTypes.filter((type) => !vendor.availableMealTypes.includes(type));
+            if (invalidTypes.length > 0) {
+                return res.status(400).json({
+                    message: `Invalid meal types: ${invalidTypes.join(', ')}. Available: ${vendor.availableMealTypes.join(', ')}`
+                });
+            }
+            user.preferredMealTypes = preferredMealTypes;
+        } else {
+            user.preferredMealTypes = vendor.availableMealTypes;
+        }
+
         user.messId = messId;
         await user.save();
+
+        await user.populate('messId');
 
         res.status(200).json({ message: 'Vendor assigned successfully', user });
     } catch (err) {
@@ -38,10 +52,14 @@ const assignVendorToUser = async (req, res) => {
 
 const createVendor = async (req, res) => {
     try {
-        const { name, shopName, address, contactNumber, amountPerDay, gstNumber, billingInfo } = req.body;
+        const { name, shopName, address, contactNumber, amountPerDay, gstNumber, billingInfo, availableMealTypes } = req.body;
 
         if (!name || !shopName || !address || !contactNumber || !amountPerDay || !gstNumber || !billingInfo) {
             return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        if (availableMealTypes && (!Array.isArray(availableMealTypes) || availableMealTypes.some((type) => typeof type !== 'string'))) {
+            return res.status(400).json({ message: 'availableMealTypes must be an array of strings' });
         }
 
         const newVendor = new Vendor({
@@ -51,6 +69,7 @@ const createVendor = async (req, res) => {
             contactNumber,
             amountPerDay,
             gstNumber,
+            availableMealTypes: availableMealTypes || [],
             billingInfo,
         });
 
@@ -68,6 +87,10 @@ const updateVendorById = async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
+        if (updates.availableMealTypes && (!Array.isArray(updates.availableMealTypes) || updates.availableMealTypes.some((type) => typeof type !== 'string'))) {
+            return res.status(400).json({ message: 'availableMealTypes must be an array of strings' });
+        }
+
         const updatedVendor = await Vendor.findByIdAndUpdate(id, updates, { new: true });
         if (!updatedVendor) {
             return res.status(404).json({ message: 'Vendor not found' });
@@ -83,6 +106,11 @@ const updateVendorById = async (req, res) => {
 const deleteVendorById = async (req, res) => {
     try {
         const { id } = req.params;
+
+        const assignedUsers = await User.countDocuments({ messId: id });
+        if (assignedUsers > 0) {
+            return res.status(400).json({ message: 'Cannot delete vendor with assigned users. Reassign first.' });
+        }
 
         const deletedVendor = await Vendor.findByIdAndDelete(id);
         if (!deletedVendor) {
@@ -104,6 +132,12 @@ const addMultipleVendors = async (req, res) => {
             return res.status(400).json({ message: 'Invalid vendor data' });
         }
 
+        for (const vendor of vendors) {
+            if (vendor.availableMealTypes && !Array.isArray(vendor.availableMealTypes)) {
+                return res.status(400).json({ message: 'Each vendor\'s availableMealTypes must be an array of strings' });
+            }
+        }
+
         const createdVendors = await Vendor.insertMany(vendors);
         res.status(201).json({ message: 'Vendors added successfully', vendors: createdVendors });
     } catch (err) {
@@ -120,6 +154,11 @@ const deleteMultipleVendors = async (req, res) => {
             return res.status(400).json({ message: 'Invalid vendor IDs' });
         }
 
+        const assignedUserCount = await User.countDocuments({ messId: { $in: ids } });
+        if (assignedUserCount > 0) {
+            return res.status(400).json({ message: 'Cannot delete vendors with assigned users. Reassign first.' });
+        }
+
         const result = await Vendor.deleteMany({ _id: { $in: ids } });
         res.status(200).json({ message: 'Vendors deleted successfully', deletedCount: result.deletedCount });
     } catch (err) {
@@ -132,7 +171,7 @@ const getVendorById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const vendor = await Vendor.findById(id);
+        const vendor = await Vendor.findById(id).populate('availableMealTypes');
         if (!vendor) {
             return res.status(404).json({ message: 'Vendor not found' });
         }
@@ -155,6 +194,13 @@ const addMeal = async (req, res) => {
         const vendor = await Vendor.findById(vendorId);
         if (!vendor) {
             return res.status(404).json({ message: 'Vendor not found' });
+        }
+
+        const invalidMealTypes = Object.keys(mealDetails).filter(key => !vendor.availableMealTypes.includes(key));
+        if (invalidMealTypes.length > 0) {
+            return res.status(400).json({
+                message: `Invalid meal types in details: ${invalidMealTypes.join(', ')}. Available: ${vendor.availableMealTypes.join(', ')}`
+            });
         }
 
         const newMeal = new Meal({
@@ -207,6 +253,18 @@ const addMultipleMeals = async (req, res) => {
 
         if (existingVendors.length !== vendorIds.length) {
             return res.status(404).json({ message: 'One or more vendors not found' });
+        }
+
+        for (const meal of meals) {
+            const vendor = existingVendors.find(v => v._id.toString() === meal.vendorId.toString());
+            if (vendor) {
+                const invalidMealTypes = Object.keys(meal.mealDetails || {}).filter(key => !vendor.availableMealTypes.includes(key));
+                if (invalidMealTypes.length > 0) {
+                    return res.status(400).json({
+                        message: `Invalid meal types for vendor ${vendor.shopName}: ${invalidMealTypes.join(', ')}`
+                    });
+                }
+            }
         }
 
         const createdMeals = await Meal.insertMany(meals);

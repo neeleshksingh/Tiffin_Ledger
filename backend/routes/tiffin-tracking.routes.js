@@ -38,7 +38,7 @@ router.delete('/delete-vendor/:id', deleteVendorById);
 
 router.delete('/delete-multiple-vendors', deleteMultipleVendors);
 
-router.post('add-multiple-vendors', addMultipleVendors);
+router.post('/add-multiple-vendors', addMultipleVendors);
 
 router.get('/get-meals/:vendorId', getMealsByVendorId);
 
