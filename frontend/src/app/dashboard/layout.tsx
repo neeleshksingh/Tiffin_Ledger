@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
     const getComponentForRoute = () => {
         if (pathname === "/dashboard") return <Landing />;
-        if (pathname === "/dashboard/timetable") return <Timetable userData={userData} />;
+        if (pathname === "/dashboard/timetable") return <Timetable />;
 
         return children;
     };

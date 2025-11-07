@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import axiosInstance from "@components/interceptors/axios.interceptor";
 import { useRouter } from "next/navigation";
 import { useToast } from "@components/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ type MealType = "breakfast" | "lunch" | "dinner";
 type DayMeals = Record<MealType, boolean>;
 type MonthDays = Record<string, DayMeals>;
 
-export default function Timetable({ userData }: { userData: any }) {
+export default function Timetable() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [monthDays, setMonthDays] = useState<MonthDays>({});
     const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -35,6 +35,23 @@ export default function Timetable({ userData }: { userData: any }) {
     const [disableBtn, setDisableBtn] = useState(false);
     const [orderId, setOrderId] = useState('');
     const [currentDayKey, setCurrentDayKey] = useState(() => new Date().toDateString());
+
+    const [userData, setUserData] = useState<any>(null);
+
+    const getUserData = async () => {
+        try {
+            const stored = localStorage.getItem("user");
+            if (!stored) return;
+            const id = JSON.parse(stored)._id;
+            if (!id) return;
+            const response = await axiosInstance.get(`profile/view-profile/${id}`);
+            setUserData(response.data.data.user);
+        } catch (error: any) {
+            toast({ variant: "error", title: `Error fetching user data: ${error.message || error}` });
+        }
+    };
+
+    useEffect(() => { getUserData(); }, []);
 
     const availableMeals = useMemo(() => {
         return (userData?.messId?.availableMealTypes || []) as MealType[];
@@ -87,6 +104,9 @@ export default function Timetable({ userData }: { userData: any }) {
                     setPendingMeals(currentMonthData.pendingMeals || currentMonthData.tiffinMeals);
                     setOrderId(currentMonthData.invoiceNumber);
                     setPayableAmount(currentMonthData.vendor.amountPerMeal || currentMonthData.vendor.amountPerDay);
+                    if (!userData && currentMonthData.vendor?.availableMealTypes) {
+                        setUserData((prev: any) => ({ ...(prev || {}), messId: { availableMealTypes: currentMonthData.vendor.availableMealTypes } }));
+                    }
                 } else {
                     toast({
                         variant: "warning",
@@ -135,7 +155,7 @@ export default function Timetable({ userData }: { userData: any }) {
 
     useEffect(() => {
         fetchMonthData(currentMonth);
-    }, [currentMonth]);
+    }, [currentMonth, defaultDayMeals]);
 
     useEffect(() => {
         const checkDayChange = () => {
