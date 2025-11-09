@@ -310,7 +310,7 @@ export default function VendorCustomers() {
                                                 </button>
 
                                                 <a
-                                                    href={`https://wa.me/${user.phone.replace(/[^0-9]/g, "")}?text=Hi%20${encodeURIComponent(user.name)}!%20Your%20meal%20is%20on%20the%20way%20from%20${encodeURIComponent(user.vendor.shopName)}!`}
+                                                    href={`https://wa.me/+91${user.phone.replace(/[^0-9]/g, "")}?text=Hi%20${encodeURIComponent(user.name)}!%20Your%20meal%20is%20on%20the%20way%20from%20${encodeURIComponent(user.vendor.shopName)}!`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="p-2 bg-green-100 hover:bg-green-200 rounded-lg transition"
