@@ -29,7 +29,18 @@ axiosInstance.interceptors.request.use(
 
     // Get token from localStorage
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
+      let token = localStorage.getItem('token');
+      if (!token) {
+        const cookieToken = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('token='))
+          ?.split('=')[1];
+        if (cookieToken) {
+          token = cookieToken;
+          localStorage.setItem('token', token);
+        }
+      }
+      
       const userData = JSON.parse(localStorage.getItem('user') || '{}');
       const messId = userData?.messId;
       if (!messId) {

@@ -66,7 +66,12 @@ export default function Login() {
                 const { token, user } = response.data;
                 localStorage.setItem("token", token);
                 localStorage.setItem("user", JSON.stringify(user));
-                Cookies.set("token", token, { secure: true });
+                Cookies.set("token", token, {
+                    expires: 7,
+                    path: '/',
+                    secure: true,
+                    sameSite: 'lax'
+                });
                 axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
                 toast({ variant: "success", title: `Welcome back, ${user.name}!` });

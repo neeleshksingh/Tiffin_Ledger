@@ -1,6 +1,7 @@
 const Vendor = require('../models/vendor');
 const VendorUser = require('../models/vendor-user');
 const Meal = require('../models/meal');
+const User = require('../models/user');
 
 // @desc    Get logged-in vendor's profile
 // @route   GET /api/vendors/profile
@@ -105,8 +106,55 @@ const deleteVendorProfile = async (req, res) => {
     }
 };
 
+// @desc    Get all users assigned to the logged-in vendor with their meal preferences
+// @route   GET /api/vendors/users
+// @access  Private (Vendor)
+const getAssignedUsers = async (req, res) => {
+    try {
+        const vendorId = req.vendorUser.vendorId._id;
+
+        const users = await User.find({ messId: vendorId })
+            .select('-password')
+            .sort({ createdAt: -1 });
+
+        await User.populate(users, { path: 'messId', select: 'shopName name' });
+
+        const formattedUsers = users.map(user => ({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            phone: user.contact?.phone || null,
+            alternatePhone: user.contact?.alternatePhone || null,
+            address: user.address,
+            profilePic: user.profilePic,
+            preferredMealTypes: user.preferredMealTypes || [],
+            vendor: user.messId ? {
+                id: user.messId._id,
+                name: user.messId.name,
+                shopName: user.messId.shopName
+            } : null,
+            joinedAt: user.createdAt
+        }));
+
+        res.status(200).json({
+            success: true,
+            count: formattedUsers.length,
+            vendorMealTypes: req.vendorUser.vendorId.availableMealTypes,
+            users: formattedUsers
+        });
+
+    } catch (err) {
+        console.error("Error in getAssignedUsers:", err);
+        res.status(500).json({
+            success: false,
+            message: 'Server Error'
+        });
+    }
+};
+
 module.exports = {
     getVendorProfile,
     updateVendorProfile,
-    deleteVendorProfile
+    deleteVendorProfile,
+    getAssignedUsers
 };
