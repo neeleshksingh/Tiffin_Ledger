@@ -1,19 +1,77 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Utensils, DollarSign, TrendingUp, Calendar, ChefHat } from "lucide-react";
+import axiosInstance from '@components/interceptors/axiosVendor.interceptor';
+
+interface User {
+    _id: string;
+    name: string;
+    email: string;
+    phone: string;
+    preferredMealTypes: string[];
+    joinedAt: string;
+}
+
+interface VendorUsersResponse {
+    success: boolean;
+    count: number;
+    vendorMealTypes: string[];
+    users: User[];
+}
 
 export default function VendorDashboard() {
+    const router = useRouter();
     const [vendorName, setVendorName] = useState("Chef");
+    const [totalCustomers, setTotalCustomers] = useState(0);
+    const [mealBreakdown, setMealBreakdown] = useState({ lunch: 0, dinner: 0, breakfast: 0 });
+    const [loading, setLoading] = useState(true);
+    const [usersData, setUsersData] = useState<VendorUsersResponse | null>(null);
 
     useEffect(() => {
+        const fetchAssignedUsers = async () => {
+            try {
+                const response = await axiosInstance.get(`/vendor/users`);
+
+                if (response) {
+                    const data: VendorUsersResponse = await response.data;
+                    setUsersData(data);
+                    setTotalCustomers(data.count);
+
+                    const breakdown = { lunch: 0, dinner: 0, breakfast: 0 };
+                    data.users.forEach((user) => {
+                        user.preferredMealTypes.forEach((type) => {
+                            if (type.toLowerCase() in breakdown) {
+                                breakdown[type.toLowerCase() as keyof typeof breakdown]++;
+                            }
+                        });
+                    });
+                    setMealBreakdown(breakdown);
+                }
+            } catch (err) {
+                console.error("Failed to fetch users:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
         const user = localStorage.getItem("vendorUser");
         if (user) {
             const parsed = JSON.parse(user);
             setVendorName(parsed.vendor?.shopName || "Chef");
         }
+
+        fetchAssignedUsers();
     }, []);
+
+    const handleViewCustomers = () => {
+        if (usersData) {
+            router.push("/vendor/customers");
+            sessionStorage.setItem("vendorCustomersData", JSON.stringify(usersData));
+        }
+    };
 
     return (
         <div className="space-y-8">
@@ -24,12 +82,42 @@ export default function VendorDashboard() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                    { title: "Total Customers", value: "48", change: "+12", icon: Users, color: "from-blue-500 to-cyan-500" },
-                    { title: "Meals Today", value: "142", desc: "Lunch: 68 · Dinner: 74", icon: Utensils, color: "from-green-500 to-emerald-500" },
-                    { title: "Revenue", value: "₹18,960", change: "+8.2%", icon: DollarSign, color: "from-yellow-500 to-orange-500" },
-                    { title: "Active Days", value: "28", desc: "This month", icon: Calendar, color: "from-purple-500 to-pink-500" },
+                    {
+                        title: "Total Customers",
+                        value: loading ? "..." : totalCustomers.toString(),
+                        desc: loading ? "" : `Lunch: ${mealBreakdown.lunch} · Dinner: ${mealBreakdown.dinner}`,
+                        icon: Users,
+                        color: "from-blue-500 to-cyan-500",
+                        onClick: handleViewCustomers,
+                    },
+                    {
+                        title: "Meals Today",
+                        value: "142",
+                        desc: "Lunch: 68 · Dinner: 74",
+                        icon: Utensils,
+                        color: "from-green-500 to-emerald-500",
+                    },
+                    {
+                        title: "Revenue",
+                        value: "₹18,960",
+                        change: "+8.2%",
+                        icon: DollarSign,
+                        color: "from-yellow-500 to-orange-500",
+                    },
+                    {
+                        title: "Active Days",
+                        value: "28",
+                        desc: "This month",
+                        icon: Calendar,
+                        color: "from-purple-500 to-pink-500",
+                    },
                 ].map((stat) => (
-                    <Card key={stat.title} className="hover:shadow-xl transition-shadow duration-300 border-0">
+                    <Card
+                        key={stat.title}
+                        className={`hover:shadow-xl transition-all duration-300 border-0 cursor-pointer ${stat.onClick ? "hover:scale-105" : ""
+                            }`}
+                        onClick={stat.onClick}
+                    >
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-gray-600">{stat.title}</CardTitle>
                             <div className={`w-10 h-10 bg-gradient-to-br ${stat.color} rounded-xl flex items-center justify-center text-white shadow-lg`}>
@@ -49,6 +137,7 @@ export default function VendorDashboard() {
                 ))}
             </div>
 
+            {/* Rest of your Quick Actions & Today's Special */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <Card className="shadow-xl">
                     <CardHeader>
