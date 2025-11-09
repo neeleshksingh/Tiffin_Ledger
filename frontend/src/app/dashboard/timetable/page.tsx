@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { AlertCircle, Phone, MessageCircle } from "lucide-react";
 import axiosInstance from "@components/interceptors/axios.interceptor";
 import { useRouter } from "next/navigation";
 import { useToast } from "@components/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -37,6 +39,9 @@ export default function Timetable() {
     const [currentDayKey, setCurrentDayKey] = useState(() => new Date().toDateString());
 
     const [userData, setUserData] = useState<any>(null);
+    const [isBlocked, setIsBlocked] = useState(false);
+    const [blockReason, setBlockReason] = useState("");
+    const [vendorContact, setVendorContact] = useState("");
 
     const getUserData = async () => {
         try {
@@ -45,13 +50,27 @@ export default function Timetable() {
             const id = JSON.parse(stored)._id;
             if (!id) return;
             const response = await axiosInstance.get(`profile/view-profile/${id}`);
-            setUserData(response.data.data.user);
+            const user = response.data.data.user;
+            setUserData(user);
+
+            const currentVendorId = user.messId?._id;
+            const blockedEntry = user.blockedByVendors?.find(
+                (b: any) => b.vendorId === currentVendorId && b.isBlocked === true
+            );
+
+            if (blockedEntry) {
+                setIsBlocked(true);
+                setBlockReason(blockedEntry.reason || "No reason provided");
+                setVendorContact(user.messId?.contactNumber || "N/A");
+            }
         } catch (error: any) {
             toast({ variant: "error", title: `Error fetching user data: ${error.message || error}` });
         }
     };
 
-    useEffect(() => { getUserData(); }, []);
+    useEffect(() => {
+        getUserData();
+    }, []);
 
     const availableMeals = useMemo(() => {
         return (userData?.preferredMealTypes || []) as MealType[];
@@ -75,72 +94,63 @@ export default function Timetable() {
         try {
             setDisableBtn(true);
             const user = localStorage.getItem("user");
-            if (user) {
-                const parsedUser = JSON.parse(user);
-                const userId = parsedUser._id;
-
-                const response = await axiosInstance.get(`/tiffin/tiffin-bill/${userId}`);
-
-                const data = response.data || [];
-                const formattedMonth = `${month.getFullYear()}-${String(
-                    month.getMonth() + 1
-                ).padStart(2, "0")}`;
-
-                const currentMonthData = data.find((item: any) => item.month === formattedMonth) || null;
-
-                if (currentMonthData) {
-                    const flattenedDays: MonthDays = {};
-                    const backendDays = currentMonthData.days || {};
-                    Object.entries(backendDays).forEach(([dayKey, dayObj]: [string, any]) => {
-                        flattenedDays[dayKey] = { ...defaultDayMeals, ...(dayObj.meals || {}) };
-                    });
-
-                    setMonthDays(flattenedDays);
-                    setPayableMeals(currentMonthData.tiffinMeals);
-                    setTotalAmount(currentMonthData.totalAmount);
-                    setPaidAmount(currentMonthData.paidAmount || 0);
-                    setPendingAmount(currentMonthData.pendingAmount || currentMonthData.totalAmount);
-                    setPaidMeals(currentMonthData.paidMeals || 0);
-                    setPendingMeals(currentMonthData.pendingMeals || currentMonthData.tiffinMeals);
-                    setOrderId(currentMonthData.invoiceNumber);
-                    setPayableAmount(currentMonthData.vendor.amountPerMeal || currentMonthData.vendor.amountPerDay);
-                    if (!userData && currentMonthData.vendor?.availableMealTypes) {
-                        setUserData((prev: any) => ({ ...(prev || {}), messId: { availableMealTypes: currentMonthData.vendor.availableMealTypes } }));
-                    }
-                } else {
-                    toast({
-                        variant: "warning",
-                        title: `No data found for this ${formattedMonth} month`,
-                    });
-                    setMonthDays({} as MonthDays);
-                    setPayableMeals(0);
-                    setTotalAmount(0);
-                    setPaidAmount(0);
-                    setPendingAmount(0);
-                    setPaidMeals(0);
-                    setPendingMeals(0);
-                    setOrderId('');
-                    setPayableAmount(0);
-                }
-                setDisableBtn(false);
-            } else {
+            if (!user) {
                 nav.push("/login");
-                setDisableBtn(true);
+                return;
+            }
+
+            const parsedUser = JSON.parse(user);
+            const userId = parsedUser._id;
+
+            const response = await axiosInstance.get(`/tiffin/tiffin-bill/${userId}`);
+            const data = response.data || [];
+            const formattedMonth = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+
+            const currentMonthData = data.find((item: any) => item.month === formattedMonth) || null;
+
+            if (currentMonthData) {
+                const flattenedDays: MonthDays = {};
+                const backendDays = currentMonthData.days || {};
+                Object.entries(backendDays).forEach(([dayKey, dayObj]: [string, any]) => {
+                    flattenedDays[dayKey] = { ...defaultDayMeals, ...(dayObj.meals || {}) };
+                });
+
+                setMonthDays(flattenedDays);
+                setPayableMeals(currentMonthData.tiffinMeals);
+                setTotalAmount(currentMonthData.totalAmount);
+                setPaidAmount(currentMonthData.paidAmount || 0);
+                setPendingAmount(currentMonthData.pendingAmount || currentMonthData.totalAmount);
+                setPaidMeals(currentMonthData.paidMeals || 0);
+                setPendingMeals(currentMonthData.pendingMeals || currentMonthData.tiffinMeals);
+                setOrderId(currentMonthData.invoiceNumber);
+                setPayableAmount(currentMonthData.vendor.amountPerMeal || currentMonthData.vendor.amountPerDay);
+
+                if (!userData && currentMonthData.vendor?.availableMealTypes) {
+                    setUserData((prev: any) => ({
+                        ...(prev || {}),
+                        messId: { availableMealTypes: currentMonthData.vendor.availableMealTypes }
+                    }));
+                }
+            } else {
+                toast({ variant: "warning", title: `No data found for ${formattedMonth}` });
+                setMonthDays({} as MonthDays);
+                setPayableMeals(0);
+                setTotalAmount(0);
+                setPaidAmount(0);
+                setPendingAmount(0);
+                setPaidMeals(0);
+                setPendingMeals(0);
+                setOrderId('');
+                setPayableAmount(0);
             }
         } catch (error: any) {
-            setDisableBtn(false);
             if (error.status === 403) {
                 localStorage.removeItem("token");
                 nav.push("/login");
-                toast({
-                    variant: "error",
-                    title: `Session Expired, Please login again`,
-                });
+                toast({ variant: "error", title: "Session Expired, Please login again" });
+            } else {
+                toast({ variant: "error", title: `Error fetching month data: ${error.message || error}` });
             }
-            toast({
-                variant: "error",
-                title: `Error fetching month data: ${error}`,
-            });
             setMonthDays({} as MonthDays);
             setPayableMeals(0);
             setTotalAmount(0);
@@ -150,13 +160,19 @@ export default function Timetable() {
             setPendingMeals(0);
             setOrderId('');
             setPayableAmount(0);
+        } finally {
+            setDisableBtn(false);
         }
     };
 
+    // Single effect to fetch data when month or user changes
     useEffect(() => {
-        fetchMonthData(currentMonth);
-    }, [currentMonth, defaultDayMeals]);
+        if (userData && !isBlocked) {
+            fetchMonthData(currentMonth);
+        }
+    }, [currentMonth, userData, isBlocked, defaultDayMeals]);
 
+    // Day change detection
     useEffect(() => {
         const checkDayChange = () => {
             const nowDay = new Date().toDateString();
@@ -166,13 +182,9 @@ export default function Timetable() {
         };
 
         checkDayChange();
-
         const intervalId = setInterval(checkDayChange, 5 * 60 * 1000);
-
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                checkDayChange();
-            }
+            if (document.visibilityState === 'visible') checkDayChange();
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -183,9 +195,7 @@ export default function Timetable() {
     }, [currentDayKey]);
 
     const handleDayClick = (selectedDate: Date) => {
-        if (selectedDate.getMonth() !== currentMonth.getMonth()) {
-            return;
-        }
+        if (selectedDate.getMonth() !== currentMonth.getMonth()) return;
 
         const dayNumber = String(selectedDate.getDate()).padStart(2, "0");
         const backendMeals = monthDays[dayNumber] || {};
@@ -193,6 +203,7 @@ export default function Timetable() {
             acc[meal] = backendMeals[meal] ?? false;
             return acc;
         }, {} as DayMeals);
+
         setDayMeals(existingDayMeals);
         setSelectedDay(selectedDate);
         setShowMealModal(true);
@@ -204,63 +215,48 @@ export default function Timetable() {
 
     const saveDayMeals = async () => {
         if (!selectedDay) return;
-
         if (selectedDay.getMonth() !== currentMonth.getMonth()) {
-            toast({
-                variant: "warning",
-                title: "Cannot save for dates outside the current month.",
-            });
+            toast({ variant: "warning", title: "Cannot save for dates outside the current month." });
             return;
         }
 
         try {
             setDisableBtn(true);
             const user = localStorage.getItem("user");
-            if (user) {
-                const parsedUser = JSON.parse(user);
-                const userId = parsedUser._id;
-
-                const dayNumber = String(selectedDay.getDate()).padStart(2, "0");
-                const formattedMonth = `${selectedDay.getFullYear()}-${String(
-                    selectedDay.getMonth() + 1
-                ).padStart(2, "0")}`;
-
-                const payload = {
-                    userId: userId,
-                    month: formattedMonth,
-                    days: {
-                        ...monthDays,
-                        [dayNumber]: dayMeals,
-                    },
-                };
-
-                const response = await axiosInstance.post(`/tiffin/track/add`, payload);
-
-                setMonthDays((prevDays) => ({
-                    ...prevDays,
-                    [dayNumber]: dayMeals,
-                }));
-
-                await fetchMonthData(currentMonth);
-                setShowMealModal(false);
-            } else {
+            if (!user) {
                 nav.push("/login");
-                setDisableBtn(true);
+                return;
             }
+
+            const parsedUser = JSON.parse(user);
+            const userId = parsedUser._id;
+            const dayNumber = String(selectedDay.getDate()).padStart(2, "0");
+            const formattedMonth = `${selectedDay.getFullYear()}-${String(selectedDay.getMonth() + 1).padStart(2, "0")}`;
+
+            const payload = {
+                userId,
+                month: formattedMonth,
+                days: {
+                    ...monthDays,
+                    [dayNumber]: dayMeals,
+                },
+            };
+
+            await axiosInstance.post(`/tiffin/track/add`, payload);
+            setMonthDays(prev => ({ ...prev, [dayNumber]: dayMeals }));
+            await fetchMonthData(currentMonth);
+            setShowMealModal(false);
+            toast({ variant: "success", title: "Meals saved successfully!" });
         } catch (error: any) {
-            setDisableBtn(false);
             if (error.status === 403) {
                 localStorage.removeItem("token");
                 nav.push("/login");
-                toast({
-                    variant: "error",
-                    title: `Session Expired, Please login again`,
-                });
+                toast({ variant: "error", title: "Session Expired, Please login again" });
+            } else {
+                toast({ variant: "error", title: `Error updating meals: ${error.response?.data?.message || error.message}` });
             }
-            toast({
-                variant: "error",
-                title: `Error updating meals: ${error}`,
-            });
+        } finally {
+            setDisableBtn(false);
         }
     };
 
@@ -268,159 +264,102 @@ export default function Timetable() {
         try {
             setDisableBtn(true);
             const user = localStorage.getItem("user");
-            if (user) {
-                const parsedUser = JSON.parse(user);
-                const userId = parsedUser._id;
-
-                const formattedMonth = `${currentMonth.getFullYear()}-${String(
-                    currentMonth.getMonth() + 1
-                ).padStart(2, "0")}`;
-
-                const payload = {
-                    userId: userId,
-                    month: formattedMonth,
-                    startDay,
-                    endDay,
-                };
-
-                await axiosInstance.post(`/payment/mark-paid-range`, payload);
-
-                toast({
-                    variant: "success",
-                    title: `Marked days ${startDay} to ${endDay} as paid.`,
-                });
-
-                setStartDay("01");
-                setEndDay("31");
-                setShowPaidRangeModal(false);
-
-                await fetchMonthData(currentMonth);
-            } else {
+            if (!user) {
                 nav.push("/login");
-                setDisableBtn(true);
+                return;
             }
+
+            const parsedUser = JSON.parse(user);
+            const userId = parsedUser._id;
+            const formattedMonth = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
+
+            const payload = { userId, month: formattedMonth, startDay, endDay };
+            await axiosInstance.post(`/payment/mark-paid-range`, payload);
+
+            toast({ variant: "success", title: `Marked days ${startDay} to ${endDay} as paid.` });
+            setStartDay("01");
+            setEndDay("31");
+            setShowPaidRangeModal(false);
+            await fetchMonthData(currentMonth);
         } catch (error: any) {
-            setDisableBtn(false);
             if (error.status === 403) {
                 localStorage.removeItem("token");
                 nav.push("/login");
-                toast({
-                    variant: "error",
-                    title: `Session Expired, Please login again`,
-                });
+                toast({ variant: "error", title: "Session Expired, Please login again" });
+            } else {
+                toast({ variant: "error", title: `Error: ${error.response?.data?.message || error.message}` });
             }
-            toast({
-                variant: "error",
-                title: `Error marking paid range: ${error.response?.data?.message || error.message}`,
-            });
+        } finally {
+            setDisableBtn(false);
         }
     };
 
     const generatePdf = async () => {
         try {
             const user = localStorage.getItem("user");
-            if (user) {
-                const parsedUser = JSON.parse(user);
-                const userId = parsedUser._id;
-
-                const payload = {
-                    userId: userId,
-                    date: new Date().toISOString().split('T')[0],
-                };
-
-                const response = await axiosInstance.post(
-                    `/tiffin/generate`,
-                    payload,
-                    { responseType: 'blob' }
-                );
-
-                const blob = new Blob([response.data], { type: 'application/pdf' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = 'bill.pdf';
-                link.click();
-                toast({
-                    variant: "success",
-                    title: `Receipt generated successfully`,
-                });
-            } else {
+            if (!user) {
                 nav.push("/login");
+                return;
             }
+
+            const parsedUser = JSON.parse(user);
+            const payload = { userId: parsedUser._id, date: new Date().toISOString().split('T')[0] };
+
+            const response = await axiosInstance.post(`/tiffin/generate`, payload, { responseType: 'blob' });
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'bill.pdf';
+            link.click();
+
+            toast({ variant: "success", title: "Receipt generated successfully" });
         } catch (error: any) {
-            toast({
-                variant: "error",
-                title: `Error generating PDF: ${error}`,
-            });
+            toast({ variant: "error", title: `Error generating PDF: ${error.message || error}` });
         }
-    };
-
-    const handleMonthChange = (newMonth: Date) => {
-        setCurrentMonth(newMonth);
-    };
-
-    const getDayMealsCount = (day: Date) => {
-        if (!(day instanceof Date) || isNaN(day.getTime())) {
-            return 0;
-        }
-
-        if (day.getMonth() !== currentMonth.getMonth()) {
-            return 0;
-        }
-
-        const dayNumber = String(day.getDate()).padStart(2, "0");
-        const dayMeals = monthDays[dayNumber];
-        if (!dayMeals) return 0;
-        return Object.values(dayMeals).filter(Boolean).length;
     };
 
     const generatePayment = async () => {
         try {
             const user = localStorage.getItem("user");
-            if (user) {
-                const amountToPay = pendingAmount > 0 ? pendingAmount : totalAmount;
-                const payload = {
-                    amount: amountToPay,
-                    orderId: orderId,
-                };
-
-                const response = await axiosInstance.post(
-                    `/payment/generate-upi-payment-link`,
-                    payload
-                );
-                const link = response.data?.paymentLink || null;
-                if (link) {
-                    const startTime = new Date().getTime();
-                    nav.push(`/payment-fallback?paymentLink=${encodeURIComponent(link)}&totalAmount=${encodeURIComponent(amountToPay)}`);
-
-                    setTimeout(() => {
-                        const endTime = new Date().getTime();
-                        const timeTaken = endTime - startTime;
-                        if (timeTaken < 1000) {
-                            window.location.href = `/payment-fallback?paymentLink=${encodeURIComponent(link)}&totalAmount=${encodeURIComponent(amountToPay)}`;
-                        }
-                    }, 800);
-                } else {
-                    toast({
-                        variant: "error",
-                        title: `Failed to generate payment link.`,
-                    });
-                }
-                toast({
-                    variant: "success",
-                    title: `Payment link generated for ₹${amountToPay}`,
-                });
-            } else {
+            if (!user) {
                 nav.push("/login");
+                return;
+            }
+
+            const amountToPay = pendingAmount > 0 ? pendingAmount : totalAmount;
+            const payload = { amount: amountToPay, orderId };
+
+            const response = await axiosInstance.post(`/payment/generate-upi-payment-link`, payload);
+            const link = response.data?.paymentLink;
+
+            if (link) {
+                nav.push(`/payment-fallback?paymentLink=${encodeURIComponent(link)}&totalAmount=${amountToPay}`);
+                toast({ variant: "success", title: `Payment link generated for ₹${amountToPay}` });
+            } else {
+                toast({ variant: "error", title: "Failed to generate payment link." });
             }
         } catch (error: any) {
-            toast({
-                variant: "error",
-                title: `Error generating payment: ${error}`,
-            });
+            toast({ variant: "error", title: `Error: ${error.message || error}` });
         }
     };
 
-    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const handlePrevMonth = () => {
+        const prev = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+        setCurrentMonth(prev);
+    };
+
+    const handleNextMonth = () => {
+        const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+        setCurrentMonth(next);
+    };
+
+    const getDayMealsCount = (day: Date) => {
+        if (!(day instanceof Date) || isNaN(day.getTime())) return 0;
+        if (day.getMonth() !== currentMonth.getMonth()) return 0;
+        const dayNumber = String(day.getDate()).padStart(2, "0");
+        const dayMeals = monthDays[dayNumber];
+        return dayMeals ? Object.values(dayMeals).filter(Boolean).length : 0;
+    };
 
     const getCalendarDays = (month: Date): Date[] => {
         const year = month.getFullYear();
@@ -448,11 +387,9 @@ export default function Timetable() {
         const totalDays = calendarDays.length;
         const remaining = 7 - (totalDays % 7);
         if (remaining !== 7) {
-            const nextFirst = new Date(year, mon + 1, 1);
-            nextFirst.setHours(0, 0, 0, 0);
             for (let i = 0; i < remaining; i++) {
-                const date = new Date(nextFirst);
-                date.setDate(1 + i);
+                const date = new Date(year, mon + 1, 1 + i);
+                date.setHours(0, 0, 0, 0);
                 calendarDays.push(date);
             }
         }
@@ -469,56 +406,75 @@ export default function Timetable() {
         return w;
     }, [calendarDays]);
 
-    const handlePrevMonth = () => {
-        const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
-        handleMonthChange(prevMonth);
-    };
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-    const handleNextMonth = () => {
-        const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
-        handleMonthChange(nextMonth);
-    };
+    // EARLY RETURN: Blocked User UI (after all hooks!)
+    if (isBlocked) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-6">
+                <div className="max-w-2xl w-full">
+                    <Alert variant="destructive" className="border-2 shadow-2xl">
+                        <span className="flex items-center gap-3">
+                            <AlertCircle className="h-8 w-8" />
+                            <AlertTitle className="text-2xl font-bold">Access Restricted</AlertTitle>
+                        </span>
+                        <AlertDescription className="text-lg mt-4 space-y-4">
+                            <p>
+                                You have been <strong>blocked</strong> by <strong>{userData?.messId?.shopName || "your vendor"}</strong>.
+                            </p>
+                            <p className="font-semibold">
+                                Reason: <span className="text-red-700">{blockReason}</span>
+                            </p>
+                            <p className="text-sm">
+                                You cannot mark attendance, make payments, or generate bills until this is resolved.
+                            </p>
+                            <div className="mt-6 p-4 bg-red-100 rounded-lg">
+                                <p className="font-medium mb-2">Please contact your vendor:</p>
+                                <div className="flex items-center gap-3">
+                                    <Phone className="w-5 h-5 text-red-700" />
+                                    <span className="font-bold">{vendorContact}</span>
+                                </div>
+                                <div className="flex items-center gap-3 mt-2">
+                                    <MessageCircle className="w-5 h-5 text-green-700" />
+                                    <a
+                                        href={`https://wa.me/+91${vendorContact.replace(/[^0-9]/g, "")}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-green-700 underline font-medium"
+                                    >
+                                        Message on WhatsApp
+                                    </a>
+                                </div>
+                            </div>
+                        </AlertDescription>
+                    </Alert>
+                </div>
+            </div>
+        );
+    }
 
+    // MAIN UI
     return (
         <div className="p-3 space-y-8 bg-gray-100">
             <h1 className="text-2xl font-bold text-gray-800">Tiffin Timetable</h1>
 
-            {/* Calendar and Billing Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Calendar Section */}
+                {/* Calendar */}
                 <div className="bg-white shadow-md rounded-lg p-6">
                     <h2 className="text-lg font-semibold text-gray-700 mb-4">Attendance Calendar</h2>
                     <div className="w-full overflow-x-auto">
-                        {/* Month Navigation */}
                         <div className="flex justify-between items-center mb-4">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handlePrevMonth}
-                            >
-                                Previous
-                            </Button>
+                            <Button variant="outline" size="sm" onClick={handlePrevMonth}>Previous</Button>
                             <h3 className="text-lg font-semibold">
                                 {currentMonth.toLocaleString("default", { month: "long", year: "numeric" })}
                             </h3>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleNextMonth}
-                            >
-                                Next
-                            </Button>
+                            <Button variant="outline" size="sm" onClick={handleNextMonth}>Next</Button>
                         </div>
 
-                        {/* Calendar Table */}
                         <table className="w-full border-collapse text-sm">
                             <thead>
                                 <tr className="text-gray-500">
-                                    {weekdays.map((day) => (
-                                        <th key={day} className="p-2 text-center font-medium">
-                                            {day}
-                                        </th>
-                                    ))}
+                                    {weekdays.map(day => <th key={day} className="p-2 text-center font-medium">{day}</th>)}
                                 </tr>
                             </thead>
                             <tbody>
@@ -526,37 +482,28 @@ export default function Timetable() {
                                     <tr key={weekIndex}>
                                         {week.map((day, dayIndex) => (
                                             <td key={dayIndex} className="p-1">
-                                                {day ? (
-                                                    <button
-                                                        type="button"
-                                                        disabled={
-                                                            day > today ||
-                                                            day.getMonth() !== currentMonth.getMonth()
-                                                        }
-                                                        onClick={() => {
-                                                            if (day <= today && day.getMonth() === currentMonth.getMonth()) {
-                                                                handleDayClick(day);
-                                                            }
-                                                        }}
-                                                        className={`w-10 h-10 rounded-full mx-auto block relative text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:cursor-not-allowed ${day.getMonth() !== currentMonth.getMonth()
+                                                <button
+                                                    type="button"
+                                                    disabled={day > today || day.getMonth() !== currentMonth.getMonth()}
+                                                    onClick={() => day <= today && day.getMonth() === currentMonth.getMonth() && handleDayClick(day)}
+                                                    className={`w-10 h-10 rounded-full mx-auto block relative text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:cursor-not-allowed ${day.getMonth() !== currentMonth.getMonth()
+                                                        ? "text-gray-400 bg-gray-100 opacity-50 cursor-not-allowed"
+                                                        : day > today
                                                             ? "text-gray-400 bg-gray-100 opacity-50 cursor-not-allowed"
-                                                            : day > today
-                                                                ? "text-gray-400 bg-gray-100 opacity-50 cursor-not-allowed"
-                                                                : getDayMealsCount(day) > 1
-                                                                    ? "bg-green-500 text-white hover:bg-green-600"
-                                                                    : getDayMealsCount(day) === 1
-                                                                        ? "bg-yellow-500 text-white hover:bg-yellow-600"
-                                                                        : "bg-red-500 text-white hover:bg-red-600"
-                                                            }`}
-                                                    >
-                                                        {day.getDate()}
-                                                        {getDayMealsCount(day) > 0 && (
-                                                            <span className="absolute -top-1 -right-1 bg-black text-white text-xs rounded-full w-5 h-5 flex items-center justify-center shadow-md">
-                                                                {getDayMealsCount(day)}
-                                                            </span>
-                                                        )}
-                                                    </button>
-                                                ) : null}
+                                                            : getDayMealsCount(day) > 1
+                                                                ? "bg-green-500 text-white hover:bg-green-600"
+                                                                : getDayMealsCount(day) === 1
+                                                                    ? "bg-yellow-500 text-white hover:bg-yellow-600"
+                                                                    : "bg-red-500 text-white hover:bg-red-600"
+                                                        }`}
+                                                >
+                                                    {day.getDate()}
+                                                    {getDayMealsCount(day) > 0 && (
+                                                        <span className="absolute -top-1 -right-1 bg-black text-white text-xs rounded-full w-5 h-5 flex items-center justify-center shadow-md">
+                                                            {getDayMealsCount(day)}
+                                                        </span>
+                                                    )}
+                                                </button>
                                             </td>
                                         ))}
                                     </tr>
@@ -566,66 +513,36 @@ export default function Timetable() {
                     </div>
                 </div>
 
-                {/* Billing Section */}
+                {/* Billing */}
                 <div className="bg-white shadow-md rounded-lg p-6 space-y-4">
                     <h2 className="text-lg font-semibold text-gray-700">Billing Details</h2>
                     <div className="bg-gray-50 p-4 rounded-md shadow-inner border border-gray-200 space-y-2">
-                        <p className="text-sm text-gray-600">
-                            <strong>Month:</strong> {currentMonth.toLocaleString("default", { month: "long" })} {currentMonth.getFullYear()}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                            <strong>Total Meals:</strong> {payableMeals}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                            <strong>Paid Meals:</strong> {paidMeals}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                            <strong>Pending Meals:</strong> {pendingMeals}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                            <strong>Rate per Meal:</strong> ₹{payableAmount}
-                        </p>
-                        <p className="text-lg font-bold text-blue-600">
-                            Paid Amount: ₹{paidAmount}
-                        </p>
-                        <p className="text-xl font-bold text-orange-600">
-                            Pending Amount: ₹{pendingAmount}
-                        </p>
-                        <p className="text-xl font-bold text-green-600">
-                            Total Amount: ₹{totalAmount}
-                        </p>
-                        {orderId && (
-                            <p className="text-sm text-gray-600">
-                                <strong>Invoice Number:</strong> {orderId}
-                            </p>
-                        )}
+                        <p className="text-sm text-gray-600"><strong>Month:</strong> {currentMonth.toLocaleString("default", { month: "long" })} {currentMonth.getFullYear()}</p>
+                        <p className="text-sm text-gray-600"><strong>Total Meals:</strong> {payableMeals}</p>
+                        <p className="text-sm text-gray-600"><strong>Paid Meals:</strong> {paidMeals}</p>
+                        <p className="text-sm text-gray-600"><strong>Pending Meals:</strong> {pendingMeals}</p>
+                        <p className="text-sm text-gray-600"><strong>Rate per Meal:</strong> ₹{payableAmount}</p>
+                        <p className="text-lg font-bold text-blue-600">Paid Amount: ₹{paidAmount}</p>
+                        <p className="text-xl font-bold text-orange-600">Pending Amount: ₹{pendingAmount}</p>
+                        <p className="text-xl font-bold text-green-600">Total Amount: ₹{totalAmount}</p>
+                        {orderId && <p className="text-sm text-gray-600"><strong>Invoice Number:</strong> {orderId}</p>}
                     </div>
+
                     {pendingAmount > 0 && (
-                        <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => setShowPaidRangeModal(true)}
-                            disabled={disableBtn}
-                        >
+                        <Button variant="outline" className="w-full" onClick={() => setShowPaidRangeModal(true)} disabled={disableBtn}>
                             Mark Paid Range
                         </Button>
                     )}
-                    <button disabled={disableBtn}
-                        className="w-full bg-green-500 text-white py-2 px-4 rounded-md shadow-lg hover:bg-green-600 transition-all disabled:opacity-50"
-                        onClick={generatePayment}
-                    >
+                    <button disabled={disableBtn} className="w-full bg-green-500 text-white py-2 px-4 rounded-md shadow-lg hover:bg-green-600 transition-all disabled:opacity-50" onClick={generatePayment}>
                         Pay Pending (₹{pendingAmount || totalAmount})
                     </button>
-                    <button disabled={disableBtn}
-                        className="w-full bg-purple-500 text-white py-2 px-4 rounded-md shadow-lg hover:bg-purple-600 transition-all disabled:opacity-50"
-                        onClick={generatePdf}
-                    >
+                    <button disabled={disableBtn} className="w-full bg-purple-500 text-white py-2 px-4 rounded-md shadow-lg hover:bg-purple-600 transition-all disabled:opacity-50" onClick={generatePdf}>
                         Generate Bill
                     </button>
                 </div>
             </div>
 
-            {/* Meal Selection Modal */}
+            {/* Meal Modal */}
             <Dialog open={showMealModal} onOpenChange={setShowMealModal}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
@@ -633,31 +550,21 @@ export default function Timetable() {
                         <DialogDescription>Choose which meals you attended on this day.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
-                        {availableMeals.map((meal) => (
+                        {availableMeals.map(meal => (
                             <div key={meal} className="flex items-center space-x-2">
-                                <Checkbox
-                                    id={meal}
-                                    checked={dayMeals[meal] ?? false}
-                                    onCheckedChange={(checked) => handleMealToggle(meal, !!checked)}
-                                />
-                                <Label htmlFor={meal} className="capitalize">
-                                    {meal}
-                                </Label>
+                                <Checkbox id={meal} checked={dayMeals[meal] ?? false} onCheckedChange={(checked) => handleMealToggle(meal, !!checked)} />
+                                <Label htmlFor={meal} className="capitalize">{meal}</Label>
                             </div>
                         ))}
                         <DialogFooter>
-                            <Button variant="outline" onClick={() => setShowMealModal(false)}>
-                                Cancel
-                            </Button>
-                            <Button onClick={saveDayMeals} disabled={disableBtn}>
-                                Save
-                            </Button>
+                            <Button variant="outline" onClick={() => setShowMealModal(false)}>Cancel</Button>
+                            <Button onClick={saveDayMeals} disabled={disableBtn}>Save</Button>
                         </DialogFooter>
                     </div>
                 </DialogContent>
             </Dialog>
 
-            {/* Mark Paid Range Modal */}
+            {/* Paid Range Modal */}
             <Dialog open={showPaidRangeModal} onOpenChange={setShowPaidRangeModal}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
@@ -667,39 +574,21 @@ export default function Timetable() {
                     <div className="space-y-4">
                         <div>
                             <Label htmlFor="startDay">Start Day (01-31)</Label>
-                            <Input
-                                id="startDay"
-                                type="text"
-                                value={startDay}
-                                onChange={(e: any) => setStartDay(e.target.value)}
-                                placeholder="01"
-                                maxLength={2}
-                            />
+                            <Input id="startDay" type="text" value={startDay} onChange={(e) => setStartDay(e.target.value)} placeholder="01" maxLength={2} />
                         </div>
                         <div>
                             <Label htmlFor="endDay">End Day (01-31)</Label>
-                            <Input
-                                id="endDay"
-                                type="text"
-                                value={endDay}
-                                onChange={(e: any) => setEndDay(e.target.value)}
-                                placeholder="31"
-                                maxLength={2}
-                            />
+                            <Input id="endDay" type="text" value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="31" maxLength={2} />
                         </div>
                         <DialogFooter>
-                            <Button variant="outline" onClick={() => setShowPaidRangeModal(false)}>
-                                Cancel
-                            </Button>
-                            <Button onClick={markPaidRange} disabled={disableBtn || !startDay || !endDay}>
-                                Mark Paid
-                            </Button>
+                            <Button variant="outline" onClick={() => setShowPaidRangeModal(false)}>Cancel</Button>
+                            <Button onClick={markPaidRange} disabled={disableBtn || !startDay || !endDay}>Mark Paid</Button>
                         </DialogFooter>
                     </div>
                 </DialogContent>
             </Dialog>
 
-            {/* Additional Info */}
+            {/* Info */}
             <div className="bg-white shadow-md rounded-lg p-6">
                 <h2 className="text-lg font-semibold text-gray-700 mb-4">How it Works</h2>
                 <ul className="list-disc pl-6 space-y-2 text-sm text-gray-600">

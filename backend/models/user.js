@@ -22,6 +22,27 @@ const userSchema = new mongoose.Schema(
             alternatePhone: { type: String },
         },
         profilePic: { type: String },
+        blockedByVendors: [
+            {
+                vendorId: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: 'Vendor',
+                    required: true
+                },
+                blockedAt: {
+                    type: Date,
+                    default: Date.now
+                },
+                reason: {
+                    type: String,
+                    default: 'No reason provided'
+                },
+                isBlocked: {
+                    type: Boolean,
+                    default: true
+                }
+            }
+        ]
     },
     { timestamps: true }
 );

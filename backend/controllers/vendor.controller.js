@@ -50,6 +50,70 @@ const assignVendorToUser = async (req, res) => {
     }
 };
 
+// @desc    Block or unblock a customer (supports multiple vendors)
+// @route   PATCH /api/vendors/users/:userId/block
+// @access  Private (Vendor)
+const toggleBlockUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const vendorId = req.vendorUser.vendorId._id;
+        const { reason } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        if (user.messId?.toString() !== vendorId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only block your own customers'
+            });
+        }
+
+        const alreadyBlocked = user.blockedByVendors.some(
+            b => b.vendorId.toString() === vendorId.toString()
+        );
+
+        if (alreadyBlocked) {
+            // Unblock
+            user.blockedByVendors = user.blockedByVendors.filter(
+                b => b.vendorId.toString() !== vendorId.toString()
+            );
+
+            user.blockedByVendors.forEach(b => {
+                if (b.vendorId.toString() === vendorId.toString()) {
+                    b.isBlocked = false;
+                }
+            });
+        } else {
+            // Block
+            user.blockedByVendors.push({
+                vendorId,
+                blockedAt: new Date(),
+                reason: reason || 'No reason provided',
+                isBlocked: true
+            });
+        }
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: alreadyBlocked ? 'Customer unblocked' : 'Customer blocked',
+            data: {
+                userId: user._id,
+                isBlockedByThisVendor: !alreadyBlocked,
+                blockedByVendors: user.blockedByVendors
+            }
+        });
+
+    } catch (err) {
+        console.error("Error in toggleBlockUser:", err);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
 const createVendor = async (req, res) => {
     try {
         const { name, shopName, address, contactNumber, amountPerDay, gstNumber, billingInfo, availableMealTypes } = req.body;
@@ -353,6 +417,7 @@ const updateMultipleMeals = async (req, res) => {
 module.exports = {
     getVendors,
     assignVendorToUser,
+    toggleBlockUser,
     createVendor,
     updateVendorById,
     deleteVendorById,

@@ -2,13 +2,15 @@ const Vendor = require('../models/vendor');
 const VendorUser = require('../models/vendor-user');
 const Meal = require('../models/meal');
 const User = require('../models/user');
+const PaidTracking = require('../models/paid-tracking');
 
-// @desc    Get logged-in vendor's profile
+// @desc    Get logged-in vendor's profile + totalRevenue
 // @route   GET /api/vendors/profile
 // @access  Private (Vendor)
 const getVendorProfile = async (req, res) => {
     try {
         const vendorId = req.vendorUser.vendorId._id;
+        const amountPerDay = req.vendorUser.vendorId.amountPerDay;
 
         const vendor = await Vendor.findById(vendorId);
         if (!vendor) {
@@ -38,6 +40,22 @@ const getVendorProfile = async (req, res) => {
             mealDetails: meal.mealDetails
         }));
 
+        // === CALCULATE TOTAL REVENUE ===
+        let totalRevenue = 0;
+
+        const paidTrackings = await PaidTracking.find({ vendorId });
+
+        for (const tracking of paidTrackings) {
+            for (const [mealType, daysMap] of tracking.days.entries()) {
+                for (const [day, isPaid] of daysMap.entries()) {
+                    if (isPaid === true) {
+                        totalRevenue += amountPerDay;
+                    }
+                }
+            }
+        }
+        // === END REVENUE CALCULATION ===
+
         res.status(200).json({
             user: {
                 id: req.vendorUser._id,
@@ -50,7 +68,8 @@ const getVendorProfile = async (req, res) => {
                 hasTodayMeal: meals.some(m =>
                     m.date.toDateString() === new Date().toDateString()
                 )
-            }
+            },
+            totalRevenue
         });
     } catch (err) {
         console.error("Error in getVendorProfile:", err);
@@ -133,7 +152,8 @@ const getAssignedUsers = async (req, res) => {
                 name: user.messId.name,
                 shopName: user.messId.shopName
             } : null,
-            joinedAt: user.createdAt
+            joinedAt: user.createdAt,
+            blockedByVendor: user.blockedByVendors.some(b => b.vendorId.toString() === vendorId.toString() && b.isBlocked)
         }));
 
         res.status(200).json({
