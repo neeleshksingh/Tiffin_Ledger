@@ -44,10 +44,11 @@ exports.getProfileById = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const tiffinTracking = await TiffinTracking.find({ userId });
+        // Filter tracking by current vendorId
+        const vendorId = user.messId?._id;
+        const tiffinTracking = await TiffinTracking.find({ userId, vendorId });
 
         const tiffinOverview = tiffinTracking.map((tracking) => {
-            // Nested flatten: Array of {date, meals: {breakfast: bool, ...}}
             const daysArray = Array.from(tracking.days.entries()).map(([date, meals]) => ({
                 date,
                 meals: Object.fromEntries(Array.from(meals.entries())),

@@ -1,25 +1,25 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface BarChartComponentProps {
-    data: { name: string; isTaken: boolean }[];
+    data: { name: string; value: number }[];
 }
 
 const BarChartComponent = ({ data }: BarChartComponentProps) => {
+    if (!data || data.length === 0) {
+        return <div className="h-72 sm:h-96 flex items-center justify-center text-gray-500">No data available</div>;
+    }
 
     const transformedData = data.map((item) => ({
         name: item.name,
-        Tiffin: item.isTaken ? 1 : 0,
-        fill: item.isTaken ? 'url(#greenGradient)' : 'url(#redGradient)',
+        Tiffin: item.value,
     }));
 
-    const sortedData = transformedData.sort((a, b) => {
-        return parseInt(a.name, 10) - parseInt(b.name, 10);
-    });
+    // No need to sort here; parent handles it
 
     return (
         <div className="h-72 sm:h-96 w-full">
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={sortedData}>
+                <BarChart data={transformedData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E0E7FF" />
                     <XAxis dataKey="name" tick={{ fill: '#6B7280' }} />
                     <YAxis tick={{ fill: '#6B7280' }} />
@@ -33,18 +33,14 @@ const BarChartComponent = ({ data }: BarChartComponentProps) => {
                     <Legend />
                     <Bar
                         dataKey="Tiffin"
-                        key="tiffin-bar"
                         radius={[5, 5, 0, 0]}
                         isAnimationActive={false}
-                    >
-                        {transformedData.map((entry, index) => (
-                            <Bar
-                                key={`bar-${index}`}
-                                dataKey="Tiffin"
-                                fill={entry.fill}
-                            />
-                        ))}
-                    </Bar>
+                        fill="url(#greenGradient)"
+                        data={transformedData.map((entry) => ({
+                            ...entry,
+                            fill: entry.Tiffin > 0 ? 'url(#greenGradient)' : 'url(#redGradient)',
+                        }))}
+                    />
                     <defs>
                         <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#22C55E" stopOpacity={0.9} />

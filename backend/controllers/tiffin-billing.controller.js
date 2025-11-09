@@ -3,6 +3,7 @@ const { ObjectId } = mongoose.Types;
 const User = require('../models/user');
 const TiffinTracking = require('../models/tiffin-tracking');
 const Bill = require('../models/bill');
+const PaidTracking = require('../models/paid-tracking');
 
 const calculateTotalAmount = (daysCount, amountPerDay) => {
     return daysCount * amountPerDay;
@@ -42,10 +43,12 @@ const getUserTiffinAndBilling = async (req, res) => {
             return res.status(404).json({ message: 'No vendor associated with this user' });
         }
 
-        const tiffinData = await TiffinTracking.find({ userId: parsedUserId });
+        const tiffinData = await TiffinTracking.find({ userId: parsedUserId, vendorId: vendor._id });
         if (!tiffinData || tiffinData.length === 0) {
             return res.status(204).json({ message: 'No tiffin tracking data found for this user' });
         }
+
+        const paidData = await PaidTracking.find({ userId: parsedUserId, vendorId: vendor._id });
 
         const bills = await Bill.find({ userId: parsedUserId }).sort({ createdAt: -1 });
 
@@ -59,7 +62,22 @@ const getUserTiffinAndBilling = async (req, res) => {
                 });
             });
 
+            const paidForMonth = paidData.find(p => p.month === month) || { days: new Map() };
+            let paidMeals = 0;
+            Array.from(tiffin.days.entries()).forEach(([dayKey, dayMeals]) => {
+                const paidDay = paidForMonth.days.get(dayKey) || new Map();
+                Array.from(dayMeals.entries()).forEach(([mealKey, mealTaken]) => {
+                    if (mealTaken && paidDay.get(mealKey)) {
+                        paidMeals++;
+                    }
+                });
+            });
+
+            const pendingMeals = totalMeals - paidMeals;
+
             const totalAmount = calculateTotalAmount(totalMeals, vendor.amountPerMeal || vendor.amountPerDay);
+            const paidAmount = calculateTotalAmount(paidMeals, vendor.amountPerMeal || vendor.amountPerDay);
+            const pendingAmount = calculateTotalAmount(pendingMeals, vendor.amountPerMeal || vendor.amountPerDay);
 
             const invoiceNumber = await generateInvoiceNumber();
 
@@ -71,7 +89,8 @@ const getUserTiffinAndBilling = async (req, res) => {
                     day,
                     {
                         date: day,
-                        meals: Object.fromEntries(Array.from(meals.entries()))
+                        meals: Object.fromEntries(Array.from(meals.entries())),
+                        paidMeals: Object.fromEntries(Array.from((paidForMonth.days.get(day) || new Map()).entries()))
                     }
                 ])
             );
@@ -79,7 +98,11 @@ const getUserTiffinAndBilling = async (req, res) => {
             return {
                 month: month,
                 tiffinMeals: totalMeals,
+                paidMeals,
+                pendingMeals,
                 totalAmount: totalAmount,
+                paidAmount,
+                pendingAmount,
                 billAmount: billAmount,
                 invoiceNumber: invoiceNumber,
                 vendor: {
