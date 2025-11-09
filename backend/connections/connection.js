@@ -5,8 +5,8 @@ const uri = process.env.MONGODB_URI;
 
 const options = {
     maxPoolSize: 10,
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
+    serverSelectionTimeoutMS: 5000, // 5 seconds
+    socketTimeoutMS: 45000, // 45 seconds
 };
 
 let isConnected = false;
