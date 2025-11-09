@@ -12,7 +12,8 @@ const vendorUserSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
-        trim: true
+        trim: true,
+        lowercase: true
     },
     password: {
         type: String,
@@ -20,8 +21,7 @@ const vendorUserSchema = new mongoose.Schema({
         minlength: 6
     }
 }, {
-    timestamps: true,
-    strict: false
+    timestamps: true
 });
 
 

@@ -7,6 +7,7 @@ const vendorSchema = new mongoose.Schema({
     contactNumber: { type: String, required: true },
     amountPerDay: { type: Number, required: true },
     gstNumber: { type: String, required: true },
+    availableMealTypes: [String],
     billingInfo: {
         name: { type: String, required: true },
         gstin: { type: String, required: true },

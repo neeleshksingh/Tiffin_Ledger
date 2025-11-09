@@ -5,7 +5,8 @@ const { generateBillPDF } = require('../controllers/bill.controller');
 const { authenticateToken } = require('../middlewares/auth.middleware');
 const { getUserTiffinAndBilling } = require('../controllers/tiffin-billing.controller');
 const validateRequest = require('../middlewares/validate-request.middleware');
-const { getVendors, assignVendorToUser, createVendor, updateVendorById, deleteVendorById, deleteMultipleVendors, addMultipleVendors, getVendorById, getMealsByVendorId, addMultipleMeals, addMeal } = require('../controllers/vendor.controller');
+const { getVendors, assignVendorToUser, createVendor, updateVendorById, deleteVendorById, deleteMultipleVendors, addMultipleVendors, getVendorById, getMealsByVendorId, addMultipleMeals, addMeal, updateMeal, updateMultipleMeals } = require('../controllers/vendor.controller');
+const { protectVendor } = require('../middlewares/protect-vendor.middleware');
 
 // Update tracking data
 router.post('/track/add', authenticateToken, validateRequest, updateTracking);
@@ -38,12 +39,15 @@ router.delete('/delete-vendor/:id', deleteVendorById);
 
 router.delete('/delete-multiple-vendors', deleteMultipleVendors);
 
-router.post('add-multiple-vendors', addMultipleVendors);
+router.post('/add-multiple-vendors', addMultipleVendors);
 
-router.get('/get-meals/:vendorId', getMealsByVendorId);
+router.get('/get-meals/:vendorId', protectVendor, getMealsByVendorId);
 
-router.post('/add-multiple-meals', addMultipleMeals);
+router.post('/add-multiple-meals', protectVendor, addMultipleMeals);
 
-router.post('/add-meal/', addMeal);
+router.post('/add-meal', protectVendor, addMeal);
+
+router.put('/update-meal/:id', protectVendor, updateMeal);
+router.put('/update-multiple-meals', protectVendor, updateMultipleMeals);
 
 module.exports = router;

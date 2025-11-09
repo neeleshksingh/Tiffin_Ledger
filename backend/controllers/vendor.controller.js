@@ -217,6 +217,81 @@ const addMultipleMeals = async (req, res) => {
     }
 };
 
+
+const updateMeal = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { date, mealDetails } = req.body;
+
+        const meal = await Meal.findById(id);
+        if (!meal) {
+            return res.status(404).json({ message: 'Meal not found' });
+        }
+
+        if (meal.vendorId.toString() !== req.vendorUser.vendorId._id.toString()) {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        meal.date = date || meal.date;
+        meal.mealDetails = mealDetails || meal.mealDetails;
+
+        await meal.save();
+
+        res.status(200).json({ message: 'Meal updated successfully', meal });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+const updateMultipleMeals = async (req, res) => {
+    try {
+        const meals = req.body;
+
+        if (!Array.isArray(meals) || meals.length === 0) {
+            return res.status(400).json({ message: 'Invalid meal data' });
+        }
+
+        const mealIds = meals.map(m => m._id).filter(Boolean);
+        const existingMeals = await Meal.find({ _id: { $in: mealIds } });
+
+        if (existingMeals.length !== mealIds.length) {
+            return res.status(404).json({ message: 'One or more meals not found' });
+        }
+
+        const unauthorized = existingMeals.some(
+            m => m.vendorId.toString() !== req.vendorUser.vendorId._id.toString()
+        );
+        if (unauthorized) {
+            return res.status(403).json({ message: 'Not authorized to update these meals' });
+        }
+
+        const bulkOps = meals.map(meal => ({
+            updateOne: {
+                filter: { _id: meal._id },
+                update: {
+                    $set: {
+                        date: meal.date || existingMeals.find(m => m._id.toString() === meal._id)?.date,
+                        mealDetails: meal.mealDetails || existingMeals.find(m => m._id.toString() === meal._id)?.mealDetails
+                    }
+                }
+            }
+        }));
+
+        await Meal.bulkWrite(bulkOps);
+
+        const updatedMeals = await Meal.find({ _id: { $in: mealIds } });
+
+        res.status(200).json({
+            message: 'Meals updated successfully',
+            meals: updatedMeals
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
 module.exports = {
     getVendors,
     assignVendorToUser,
@@ -229,4 +304,6 @@ module.exports = {
     addMeal,
     getMealsByVendorId,
     addMultipleMeals,
+    updateMeal,
+    updateMultipleMeals
 };
