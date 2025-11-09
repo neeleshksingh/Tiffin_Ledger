@@ -6,6 +6,10 @@ const userSchema = new mongoose.Schema(
         email: { type: String, required: true, unique: true },
         password: { type: String, required: true },
         messId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' },
+        preferredMealTypes: {
+            type: [String],
+            default: []
+        },
         address: {
             line1: { type: String },
             line2: { type: String },

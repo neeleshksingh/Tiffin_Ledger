@@ -7,6 +7,7 @@ const userRoutes = require('./routes/authentication.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const profileRoutes = require('./routes/profile.routes');
 const profilePicRoutes = require('./routes/profile-pic.routes');
+const vendorProfileRoutes = require('./routes/vendor-user.routes');
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use('/user', userRoutes);
 app.use('/payment', paymentRoutes);
 app.use('/profile', profileRoutes);
 app.use('/profile-pic', profilePicRoutes);
+app.use('/vendor', vendorProfileRoutes);
 
 app.get('/', (req, res) => res.status(200).send('Backend OK'));
 

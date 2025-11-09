@@ -54,7 +54,7 @@ export default function Timetable() {
     useEffect(() => { getUserData(); }, []);
 
     const availableMeals = useMemo(() => {
-        return (userData?.messId?.availableMealTypes || []) as MealType[];
+        return (userData?.preferredMealTypes || []) as MealType[];
     }, [userData]);
 
     const defaultDayMeals = useMemo(() =>
