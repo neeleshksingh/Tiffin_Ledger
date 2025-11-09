@@ -41,7 +41,7 @@ router.delete('/delete-multiple-vendors', deleteMultipleVendors);
 
 router.post('/add-multiple-vendors', addMultipleVendors);
 
-router.get('/get-meals/:vendorId', protectVendor, getMealsByVendorId);
+router.get('/get-meals/:vendorId', getMealsByVendorId);
 
 router.post('/add-multiple-meals', protectVendor, addMultipleMeals);
 
