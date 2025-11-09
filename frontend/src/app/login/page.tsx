@@ -7,58 +7,81 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Cookies from 'js-cookie';
 import Image from "next/image";
-import { Mail, Lock, ArrowRight, Loader2, Menu, X } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, Menu, X, UserCheck, Store } from 'lucide-react';
 import { Button } from "@components/components/ui/button";
 
 export default function Login() {
-
-    const [error, setError] = useState('');
-    const [data, setData] = useState({ email: "", password: "" });
-    const { toast } = useToast();
-    const nav = useRouter();
+    const [isVendor, setIsVendor] = useState(false);
     const [loading, setLoading] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const { toast } = useToast();
+    const nav = useRouter();
 
+    // Shared form state
+    const [form, setForm] = useState({
+        email: "",
+        password: "",
+        username: "", // for vendor
+    });
 
     const handleChange = (e: any) => {
         const { name, value } = e.target;
-        setData((prevData) => ({
-            ...prevData,
-            [name]: value
-        }));
+        setForm(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = async (e: any) => {
         e.preventDefault();
+        setLoading(true);
 
         try {
-            setLoading(true);
-            const response = await axios.post(`${process.env.NEXT_PUBLIC_API_ENDPOINT}/user/signin`, data);
-            const token = response.data.token;
-            const user = response.data.user;
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
-            Cookies.set('token', token, { secure: true, httpOnly: false });
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            nav.push('/dashboard')
-            toast({
-                variant: "success",
-                title: `Welcome, ${response.data.user.name}`,
-            });
+            let response;
+            if (isVendor) {
+                // Vendor Login
+                response = await axios.post(
+                    `${process.env.NEXT_PUBLIC_API_ENDPOINT}/user/vendors/login`,
+                    {
+                        username: form.username,
+                        password: form.password,
+                    }
+                );
 
+                const { token, user } = response.data;
+                localStorage.setItem("vendorToken", token);
+                localStorage.setItem("vendorUser", JSON.stringify(user));
+                Cookies.set("vendorToken", token, { secure: true });
+                axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+                toast({ variant: "success", title: `Welcome, ${user.vendor.shopName}!` });
+                nav.push("/vendor/dashboard"); // Vendor dashboard
+            } else {
+                // Customer Login
+                response = await axios.post(
+                    `${process.env.NEXT_PUBLIC_API_ENDPOINT}/user/signin`,
+                    {
+                        email: form.email,
+                        password: form.password,
+                    }
+                );
+
+                const { token, user } = response.data;
+                localStorage.setItem("token", token);
+                localStorage.setItem("user", JSON.stringify(user));
+                Cookies.set("token", token, { secure: true });
+                axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+                toast({ variant: "success", title: `Welcome back, ${user.name}!` });
+                nav.push("/dashboard"); // Customer dashboard
+            }
         } catch (err: any) {
-            setError('Invalid email or password');
-            toast({
-                variant: "error",
-                title: err.response.data.message,
-            });
+            const msg = err.response?.data?.message || "Invalid credentials";
+            toast({ variant: "error", title: msg });
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
             {/* Navigation */}
             <nav className="fixed w-full bg-white/80 backdrop-blur-sm shadow-sm z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -69,174 +92,168 @@ export default function Login() {
                         </div>
 
                         <div className="hidden md:flex items-center space-x-8">
-                            <Link href="/" className="text-gray-600 hover:text-orange-600 transition">Home</Link>
-                            <Link href="/about-us" className="text-gray-600 hover:text-orange-600 transition">About</Link>
-                            <Link href="/contact" className="text-gray-600 hover:text-orange-600 transition">Contact</Link>
+                            <Link href="/" className="text-gray-600 hover:text-orange-600">Home</Link>
+                            <Link href="/about-us" className="text-gray-600 hover:text-orange-600">About</Link>
+                            <Link href="/contact" className="text-gray-600 hover:text-orange-600">Contact</Link>
                             <Button asChild className="bg-orange-600 hover:bg-orange-700">
-                                <Link href="/login">Login</Link>
+                                <Link href="/signup">Sign Up</Link>
                             </Button>
                         </div>
 
-                        <div className="md:hidden">
-                            <button
-                                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                className="text-gray-600 hover:text-orange-600 transition"
-                            >
-                                {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-                            </button>
-                        </div>
+                        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden">
+                            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                        </button>
                     </div>
 
                     {isMenuOpen && (
-                        <div className="md:hidden">
-                            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                                <Link href="/" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">Home</Link>
-                                <Link href="/about-us" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">About</Link>
-                                <Link href="/contact" className="block px-3 py-2 text-gray-600 hover:text-orange-600 transition">Contact</Link>
-                                <Button asChild className="w-full bg-orange-600 hover:bg-orange-700 mt-4">
-                                    <Link href="/login">Login</Link>
-                                </Button>
-                            </div>
+                        <div className="md:hidden px-4 pb-4 bg-white">
+                            <Link href="/" className="block py-2 text-gray-600">Home</Link>
+                            <Link href="/about-us" className="block py-2 text-gray-600">About</Link>
+                            <Link href="/contact" className="block py-2 text-gray-600">Contact</Link>
+                            <Button asChild className="w-full mt-4"><Link href="/signup">Sign Up</Link></Button>
                         </div>
                     )}
                 </div>
             </nav>
 
-            {/* Sign In Content */}
-            <div className="pt-16 min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-orange-50 p-4">
-                <div className="w-full max-w-md">
-                    {/* Logo and Title */}
-                    <div className="text-center mb-8">
-                        <div className="inline-block p-2 bg-orange-100 rounded-lg mb-4">
-                            <div className="text-3xl font-bold text-orange-600">
-                                <Image src="/assets/logo.png" alt="Logo" width={40} height={40} />
-                            </div>
+            {/* Main Content */}
+            <div className="pt-20 flex items-center justify-center min-h-screen p-4">
+                <div className="w-full max-w-lg">
+                    {/* Toggle Switch */}
+                    <div className="flex justify-center mb-10">
+                        <div className="bg-gray-100 p-1 rounded-full flex items-center">
+                            <button
+                                onClick={() => setIsVendor(false)}
+                                className={`px-6 py-3 rounded-full flex items-center gap-2 transition-all ${!isVendor ? 'bg-orange-600 text-white shadow-md' : 'text-gray-600'}`}
+                            >
+                                <UserCheck className="w-5 h-5" />
+                                Customer Login
+                            </button>
+                            <button
+                                onClick={() => setIsVendor(true)}
+                                className={`px-6 py-3 rounded-full flex items-center gap-2 transition-all ${isVendor ? 'bg-orange-600 text-white shadow-md' : 'text-gray-600'}`}
+                            >
+                                <Store className="w-5 h-5" />
+                                Vendor Login
+                            </button>
                         </div>
-                        <h2 className="text-2xl font-bold text-gray-900">Welcome back to Tiffin Ledger</h2>
-                        <p className="text-gray-600 mt-2">Please sign in to your account</p>
                     </div>
 
                     {/* Login Card */}
-                    <div className="bg-white rounded-2xl shadow-xl p-8 transition-transform transform hover:scale-[1.02]">
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            <div className="space-y-2">
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Mail className="h-5 w-5 text-gray-400" />
-                                    </div>
-                                    <input
-                                        type="email"
-                                        id="email"
-                                        name="email"
-                                        required
-                                        onChange={handleChange}
-                                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
-                                        placeholder="Enter your email"
-                                    />
-                                </div>
+                    <div className={`bg-white rounded-2xl shadow-2xl p-8 ${isVendor ? 'border-2 border-orange-500' : ''} transition-all`}>
+                        <div className="text-center mb-8">
+                            <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-100 rounded-full mb-4">
+                                {isVendor ? <Store className="w-10 h-10 text-orange-600" /> : <UserCheck className="w-10 h-10 text-orange-600" />}
                             </div>
+                            <h2 className="text-3xl font-bold text-gray-900">
+                                {isVendor ? "Vendor Dashboard Login" : "Welcome Back!"}
+                            </h2>
+                            <p className="text-gray-600 mt-2">
+                                {isVendor ? "Manage your mess operations" : "Sign in to continue your tiffin journey"}
+                            </p>
+                        </div>
 
-                            <div className="space-y-2">
-                                <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Lock className="h-5 w-5 text-gray-400" />
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            {/* Vendor Username */}
+                            {isVendor && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Username</label>
+                                    <div className="relative mt-2">
+                                        <UserCheck className="absolute left-3 top-3.5 h-5 w-5 text-orange-600" />
+                                        <input
+                                            type="text"
+                                            name="username"
+                                            required={isVendor}
+                                            value={form.username}
+                                            onChange={handleChange}
+                                            className="pl-10 w-full px-4 py-3 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                                            placeholder="raj_mess"
+                                        />
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Customer Email */}
+                            {!isVendor && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Email</label>
+                                    <div className="relative mt-2">
+                                        <Mail className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            required={!isVendor}
+                                            value={form.email}
+                                            onChange={handleChange}
+                                            className="pl-10 w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
+                                            placeholder="you@example.com"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Password */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Password</label>
+                                <div className="relative mt-2">
+                                    <Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
                                     <input
                                         type="password"
-                                        id="password"
                                         name="password"
                                         required
+                                        value={form.password}
                                         onChange={handleChange}
-                                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
-                                        placeholder="Enter your password"
+                                        className="pl-10 w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
+                                        placeholder="••••••••"
                                     />
                                 </div>
                             </div>
 
-                            {/* Remember Me & Forgot Password */}
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        id="remember"
-                                        className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                                    />
-                                    <label htmlFor="remember" className="ml-2 block text-sm text-gray-700">Remember me</label>
-                                </div>
-                                <Link href="/forgot-password" className="text-sm font-medium text-orange-600 hover:text-orange-500">
-                                    Forgot password?
-                                </Link>
-                            </div>
-
-                            {/* Login Button */}
-                            <button
+                            <Button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full flex items-center justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+                                className={`w-full font-bold py-3 ${isVendor ? 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700' : 'bg-orange-600 hover:bg-orange-700'}`}
                             >
-                                {loading ? (
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                ) : (
+                                {loading ? <Loader2 className="animate-spin" /> : (
                                     <>
-                                        <span>Sign in</span>
-                                        <ArrowRight className="ml-2 h-5 w-5" />
+                                        Sign In <ArrowRight className="ml-2 h-5 w-5" />
                                     </>
                                 )}
-                            </button>
+                            </Button>
+                        </form>
 
-                            {/* Sign Up Link */}
-                            <div className="text-center mt-6">
-                                <p className="text-sm text-gray-600">
-                                    Don't have an account?{" "}
-                                    <Link href="/signup" className="font-medium text-orange-600 hover:text-orange-500">
-                                        Sign up now
-                                    </Link>
+                        {/* Links */}
+                        <div className="mt-6 text-center space-y-3">
+                            {!isVendor && (
+                                <Link href="/forgot-password" className="text-sm text-orange-600 hover:underline">
+                                    Forgot password?
+                                </Link>
+                            )}
+                            <p className="text-sm text-gray-600">
+                                Don't have an account?{" "}
+                                <Link href="/signup" className="font-medium text-orange-600 hover:underline">
+                                    Sign up here
+                                </Link>
+                            </p>
+                        </div>
+
+                        {isVendor && (
+                            <div className="mt-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                <p className="text-sm text-amber-800">
+                                    <strong>Tip:</strong> Use the username you set during vendor registration.
                                 </p>
                             </div>
-                        </form>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="mt-8 text-center text-sm text-gray-500">
-                        <p>Protected by reCAPTCHA and subject to the Tiffin Ledger</p>
-                        <p>
-                            <Link href="/privacy" className="text-orange-600 hover:text-orange-500">Privacy Policy</Link>
-                            {" and "}
-                            <Link href="/terms" className="text-orange-600 hover:text-orange-500">Terms of Service</Link>
-                        </p>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* Main Footer */}
-            <footer className="bg-gray-900 text-white">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div>
-                            <h3 className="text-2xl font-bold text-orange-500 mb-4">Tiffin Ledger</h3>
-                            <p className="text-gray-400">Making tiffin service management simple and efficient</p>
-                        </div>
-                        <div>
-                            <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
-                            <ul className="space-y-2">
-                                <li><Link href="/" className="text-gray-400 hover:text-orange-500 transition">Home</Link></li>
-                                <li><Link href="/about-us" className="text-gray-400 hover:text-orange-500 transition">About</Link></li>
-                                <li><Link href="/contact" className="text-gray-400 hover:text-orange-500 transition">Contact</Link></li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 className="text-lg font-semibold mb-4">Contact Us</h4>
-                            <p className="text-gray-400">Email: neelesh1517@gmail.com</p>
-                            <p className="text-gray-400">Phone: +91 8877450120</p>
-                        </div>
-                    </div>
-                    <div className="border-t border-gray-800 mt-8 pt-8 text-center">
-                        <p className="text-gray-400">&copy; {new Date().getFullYear()} Tiffin Ledger. All rights reserved.</p>
-                    </div>
+            {/* Footer */}
+            <footer className="bg-gray-900 text-white py-12 mt-20">
+                <div className="max-w-7xl mx-auto px-4 text-center">
+                    <p>&copy; {new Date().getFullYear()} Tiffin Ledger. All rights reserved.</p>
                 </div>
             </footer>
         </div>
-    )
+    );
 }
