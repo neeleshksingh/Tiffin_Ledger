@@ -260,10 +260,15 @@ const addMeal = async (req, res) => {
             return res.status(404).json({ message: 'Vendor not found' });
         }
 
-        const invalidMealTypes = Object.keys(mealDetails).filter(key => !vendor.availableMealTypes.includes(key));
+        const invalidMealTypes = Object.keys(mealDetails || {}).filter(key => {
+            const value = mealDetails[key];
+            const hasValue = value != null && value !== '' && value !== undefined;
+            return hasValue && !vendor.availableMealTypes.includes(key);
+        });
+
         if (invalidMealTypes.length > 0) {
             return res.status(400).json({
-                message: `Invalid meal types in details: ${invalidMealTypes.join(', ')}. Available: ${vendor.availableMealTypes.join(', ')}`
+                message: `Invalid meal types: ${invalidMealTypes.join(', ')}. Available: ${vendor.availableMealTypes.join(', ')}`
             });
         }
 
@@ -276,28 +281,6 @@ const addMeal = async (req, res) => {
         await newMeal.save();
 
         res.status(201).json({ message: 'Meal added successfully', meal: newMeal });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server Error' });
-    }
-};
-
-const getMealsByVendorId = async (req, res) => {
-    try {
-        const { vendorId } = req.params;
-
-        const vendor = await Vendor.findById(vendorId);
-        if (!vendor) {
-            return res.status(404).json({ message: 'Vendor not found' });
-        }
-
-        const meals = await Meal.find({ vendorId });
-
-        if (meals.length === 0) {
-            return res.status(404).json({ message: 'No meals found for this vendor' });
-        }
-
-        res.status(200).json(meals);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server Error' });
@@ -322,10 +305,15 @@ const addMultipleMeals = async (req, res) => {
         for (const meal of meals) {
             const vendor = existingVendors.find(v => v._id.toString() === meal.vendorId.toString());
             if (vendor) {
-                const invalidMealTypes = Object.keys(meal.mealDetails || {}).filter(key => !vendor.availableMealTypes.includes(key));
+                const invalidMealTypes = Object.keys(meal.mealDetails || {}).filter(key => {
+                    const value = meal.mealDetails[key];
+                    const hasValue = value != null && value !== '' && value !== undefined;
+                    return hasValue && !vendor.availableMealTypes.includes(key);
+                });
+
                 if (invalidMealTypes.length > 0) {
                     return res.status(400).json({
-                        message: `Invalid meal types for vendor ${vendor.shopName}: ${invalidMealTypes.join(', ')}`
+                        message: `Invalid meal types for vendor ${vendor.shopName}: ${invalidMealTypes.join(', ')}. Allowed: ${vendor.availableMealTypes.join(', ')}`
                     });
                 }
             }
@@ -334,11 +322,28 @@ const addMultipleMeals = async (req, res) => {
         const createdMeals = await Meal.insertMany(meals);
         res.status(201).json({ message: 'Meals added successfully', meals: createdMeals });
     } catch (err) {
-        console.error(err);
+        console.error("Error in addMultipleMeals:", err);
         res.status(500).json({ message: 'Server Error' });
     }
 };
 
+const getMealsByVendorId = async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+
+        const vendor = await Vendor.findById(vendorId);
+        if (!vendor) {
+            return res.status(404).json({ message: 'Vendor not found' });
+        }
+
+        const meals = await Meal.find({ vendorId }).sort({ date: 1 });
+
+        res.status(200).json(meals);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
 
 const updateMeal = async (req, res) => {
     try {
@@ -354,8 +359,23 @@ const updateMeal = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
+        if (mealDetails) {
+            const vendor = await Vendor.findById(meal.vendorId);
+            const invalidMealTypes = Object.keys(mealDetails).filter(key => {
+                const value = mealDetails[key];
+                const hasValue = value != null && value !== '' && value !== undefined;
+                return hasValue && !vendor.availableMealTypes.includes(key);
+            });
+
+            if (invalidMealTypes.length > 0) {
+                return res.status(400).json({
+                    message: `Cannot update with invalid meal types: ${invalidMealTypes.join(', ')}`
+                });
+            }
+        }
+
         meal.date = date || meal.date;
-        meal.mealDetails = mealDetails || meal.mealDetails;
+        meal.mealDetails = mealDetails ? { ...meal.mealDetails, ...mealDetails } : meal.mealDetails;
 
         await meal.save();
 
@@ -375,42 +395,83 @@ const updateMultipleMeals = async (req, res) => {
         }
 
         const mealIds = meals.map(m => m._id).filter(Boolean);
-        const existingMeals = await Meal.find({ _id: { $in: mealIds } });
+        if (mealIds.length === 0) {
+            return res.status(400).json({ message: 'No valid meal IDs provided' });
+        }
 
+        const existingMeals = await Meal.find({ _id: { $in: mealIds } });
         if (existingMeals.length !== mealIds.length) {
             return res.status(404).json({ message: 'One or more meals not found' });
         }
 
-        const unauthorized = existingMeals.some(
-            m => m.vendorId.toString() !== req.vendorUser.vendorId._id.toString()
-        );
+        const vendorId = req.vendorUser.vendorId._id.toString();
+
+        const unauthorized = existingMeals.some(m => m.vendorId.toString() !== vendorId);
         if (unauthorized) {
             return res.status(403).json({ message: 'Not authorized to update these meals' });
         }
 
-        const bulkOps = meals.map(meal => ({
-            updateOne: {
-                filter: { _id: meal._id },
-                update: {
-                    $set: {
-                        date: meal.date || existingMeals.find(m => m._id.toString() === meal._id)?.date,
-                        mealDetails: meal.mealDetails || existingMeals.find(m => m._id.toString() === meal._id)?.mealDetails
-                    }
+        const vendor = await Vendor.findById(vendorId);
+        if (!vendor) {
+            return res.status(404).json({ message: 'Vendor not found' });
+        }
+
+        for (const meal of meals) {
+            if (meal.mealDetails) {
+                const invalidMealTypes = Object.keys(meal.mealDetails).filter(key => {
+                    const value = meal.mealDetails[key];
+                    const hasValue = value != null && value !== '' && value !== undefined;
+                    return hasValue && !vendor.availableMealTypes.includes(key);
+                });
+
+                if (invalidMealTypes.length > 0) {
+                    return res.status(400).json({
+                        message: `Invalid meal types for ${vendor.shopName}: ${invalidMealTypes.join(', ')}. Allowed: ${vendor.availableMealTypes.join(', ')}`
+                    });
                 }
             }
-        }));
+        }
+
+        const bulkOps = meals.map(meal => {
+            const dbMeal = existingMeals.find(m => m._id.toString() === meal._id.toString());
+
+            const updateData = {
+                $set: {}
+            };
+
+            if (meal.date) updateData.$set.date = meal.date;
+            if (meal.mealDetails) {
+                const cleanedDetails = { ...dbMeal.mealDetails };
+                Object.keys(meal.mealDetails).forEach(key => {
+                    const value = meal.mealDetails[key];
+                    if (value != null && value !== '' && value !== undefined) {
+                        cleanedDetails[key] = value;
+                    } else {
+                        delete cleanedDetails[key];
+                    }
+                });
+                updateData.$set.mealDetails = cleanedDetails;
+            }
+
+            return {
+                updateOne: {
+                    filter: { _id: meal._id },
+                    update: updateData
+                }
+            };
+        });
 
         await Meal.bulkWrite(bulkOps);
 
-        const updatedMeals = await Meal.find({ _id: { $in: mealIds } });
+        const updatedMeals = await Meal.find({ _id: { $in: mealIds } }).sort({ date: 1 });
 
         res.status(200).json({
             message: 'Meals updated successfully',
             meals: updatedMeals
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server Error' });
+        console.error("Error in updateMultipleMeals:", err);
+        res.status(500).json({ message: 'Server Error', error: err.message });
     }
 };
 

@@ -27,7 +27,6 @@ interface Meal {
 export default function VendorMeals() {
     const [meals, setMeals] = useState<Meal[]>([]);
     const [vendorId, setVendorId] = useState<string>("");
-    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [editingDate, setEditingDate] = useState<string | null>(null);
     const [form, setForm] = useState<MealDetails>({});
@@ -38,7 +37,6 @@ export default function VendorMeals() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                setLoading(true);
                 const profileRes = await axiosVendor.get("/vendor/profile");
                 const vendor = profileRes.data.user.vendor;
                 setVendorId(vendor._id);
@@ -51,8 +49,6 @@ export default function VendorMeals() {
                     title: "Error",
                     description: err.response?.data?.message || "Failed to load data",
                 });
-            } finally {
-                setLoading(false);
             }
         };
         fetchData();
@@ -125,21 +121,6 @@ export default function VendorMeals() {
             default: return <Utensils className="w-5 h-5" />;
         }
     };
-
-    if (loading) {
-        return (
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex h-screen items-center justify-center bg-gradient-to-br from-orange-50 to-red-50"
-            >
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-orange-600 mb-4"></div>
-                    <p className="text-xl text-gray-700">Loading your menu...</p>
-                </div>
-            </motion.div>
-        );
-    }
 
     return (
         <div className="max-w-7xl mx-auto p-6 space-y-10">

@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isVendorLoggedIn } from "@/lib/auth";
 import VendorLayout from "./components/VendorLayout";
+import { ClientProviders } from "@components/components/providers/loadingWrapper";
+import { LoadingProvider } from "@components/contexts/loading-context";
+import { VendorLoadingWrapper } from "@components/components/providers/vendor-loading-wrapper";
 
 export default function VendorRootLayout({
     children,
@@ -36,5 +39,11 @@ export default function VendorRootLayout({
         return null;
     }
 
-    return <VendorLayout>{children}</VendorLayout>;
+    return (
+        <LoadingProvider>
+            <VendorLoadingWrapper>
+                <VendorLayout>{children}</VendorLayout>
+            </VendorLoadingWrapper>
+        </LoadingProvider>
+    );
 }

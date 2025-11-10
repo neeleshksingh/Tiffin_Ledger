@@ -29,7 +29,6 @@ export default function VendorDashboard() {
     const [vendorName, setVendorName] = useState("Chef");
     const [totalCustomers, setTotalCustomers] = useState(0);
     const [mealBreakdown, setMealBreakdown] = useState({ lunch: 0, dinner: 0, breakfast: 0 });
-    const [loading, setLoading] = useState(true);
     const [usersData, setUsersData] = useState<VendorUsersResponse | null>(null);
     const [vendorData, setVendorData] = useState<any>(null);
 
@@ -65,15 +64,12 @@ export default function VendorDashboard() {
 
     const fetchProfile = async () => {
         try {
-            setLoading(true);
             const res = await axiosInstance.get("/vendor/profile");
             const user = res.data;
             setVendorData(user);
             localStorage.setItem("vendorUser", JSON.stringify(user));
         } catch (err: any) {
             toast({ variant: "error", title: "Error", description: err.response?.data?.message || "Failed to load profile" });
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -87,33 +83,6 @@ export default function VendorDashboard() {
             router.push("/vendor/customers");
         }
     };
-
-    if (loading) {
-        return (
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex h-screen items-center justify-center bg-gradient-to-br from-orange-50 to-red-50"
-            >
-                <div className="text-center">
-                    <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    >
-                        <Loader2 className="w-16 h-16 text-orange-600" />
-                    </motion.div>
-                    <motion.p
-                        initial={{ y: 20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: 0.3 }}
-                        className="text-xl text-gray-700 mt-6"
-                    >
-                        Cooking up your dashboard...
-                    </motion.p>
-                </div>
-            </motion.div>
-        );
-    }
 
     return (
         <motion.div

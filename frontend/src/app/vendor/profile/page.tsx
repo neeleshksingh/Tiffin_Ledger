@@ -15,7 +15,6 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function VendorProfile() {
     const [isEditing, setIsEditing] = useState(false);
-    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [vendorData, setVendorData] = useState<any>(null);
 
@@ -34,7 +33,6 @@ export default function VendorProfile() {
 
     const fetchProfile = async () => {
         try {
-            setLoading(true);
             const res = await axiosInstance.get("/vendor/profile");
             const { user } = res.data;
             const vendor = user.vendor;
@@ -59,8 +57,6 @@ export default function VendorProfile() {
         } catch (err: any) {
             const msg = err.response?.data?.message || err.message || "Failed to load profile";
             toast({ variant: "error", title: "Error", description: msg });
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -106,26 +102,6 @@ export default function VendorProfile() {
         navigator.clipboard.writeText(text);
         toast({ variant: "success", title: "Copied!", description: `${label} copied to clipboard.` });
     };
-
-    if (loading) {
-        return (
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-orange-50"
-            >
-                <div className="flex flex-col items-center gap-6">
-                    <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    >
-                        <Loader2 className="w-16 h-16 text-orange-600" />
-                    </motion.div>
-                    <p className="text-xl text-gray-600 font-medium">Loading your profile...</p>
-                </div>
-            </motion.div>
-        );
-    }
 
     return (
         <motion.div
