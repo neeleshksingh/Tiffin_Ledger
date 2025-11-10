@@ -32,27 +32,3 @@ const port = process.env.PORT;
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
-
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
-
-async function gracefulShutdown() {
-    console.log('Shutting down...');
-    try {
-        await require('./config/redis').quit();
-        console.log('Redis connection closed.');
-    } catch (err) {
-        console.error('Error closing Redis:', err);
-    }
-    process.exit(0);
-}
-
-app.get('/test-redis', async (req, res) => {
-    try {
-        await redisClient.set('test', 'hello');
-        const val = await redisClient.get('test');
-        res.json({ redis: 'working', value: val });
-    } catch (err) {
-        res.status(500).json({ redis: 'not working', error: err.message });
-    }
-});
