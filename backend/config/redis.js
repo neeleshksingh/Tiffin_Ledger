@@ -1,32 +1,30 @@
-import { createClient } from 'redis';
+import { Redis } from '@upstash/redis';
 
-const redisClient = createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
-    socket: {
-        reconnectStrategy: (retries) => {
-            if (retries > 20) {
-                console.warn('Redis: Too many retries. Working offline.');
-                return false; // Stop trying
-            }
-            return Math.min(retries * 500, 5000);
-        }
+let redisClient;
+
+const createUpstashClient = () => {
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    if (!url || !token) {
+        console.warn('Upstash: Missing URL or TOKEN. App will work without cache.');
+        return null;
     }
-});
 
-redisClient.on('error', (err) => {
-    if (err.code === 'ECONNREFUSED') {
-        console.warn('Redis not running. Continuing without cache...');
-    } else {
-        console.error('Redis Error:', err);
-    }
-});
+    const client = new Redis({
+        url,
+        token,
+    });
 
-redisClient.on('connect', () => console.log('Redis Connected'));
-redisClient.on('ready', () => console.log('Redis Ready!'));
+    client.ping().then((pong) => {
+        console.log('Upstash Redis Ready!', pong);
+    }).catch((err) => {
+        console.error('Upstash Redis Init Error:', err);
+    });
 
-// Don't crash on connect failure
-redisClient.connect().catch(() => {
-    console.warn('Redis unavailable. App will work without cache.');
-});
+    return client;
+};
+
+redisClient = createUpstashClient();
 
 export default redisClient;
