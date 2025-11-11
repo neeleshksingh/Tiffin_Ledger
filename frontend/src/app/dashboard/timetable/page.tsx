@@ -23,8 +23,6 @@ export default function Timetable() {
     const [showMealModal, setShowMealModal] = useState(false);
     const [showPaidRangeModal, setShowPaidRangeModal] = useState(false);
     const [dayMeals, setDayMeals] = useState<DayMeals>({ breakfast: false, lunch: false, dinner: false });
-    const [startDay, setStartDay] = useState("01");
-    const [endDay, setEndDay] = useState("31");
     const nav = useRouter();
     const [totalAmount, setTotalAmount] = useState(0);
     const [paidAmount, setPaidAmount] = useState(0);
@@ -37,6 +35,8 @@ export default function Timetable() {
     const [disableBtn, setDisableBtn] = useState(false);
     const [orderId, setOrderId] = useState('');
     const [currentDayKey, setCurrentDayKey] = useState(() => new Date().toDateString());
+    const [eligibleDays, setEligibleDays] = useState<string[]>([]);
+    const [selectedPaidDays, setSelectedPaidDays] = useState<Set<string>>(new Set());
 
     const [userData, setUserData] = useState<any>(null);
     const [isBlocked, setIsBlocked] = useState(false);
@@ -119,7 +119,7 @@ export default function Timetable() {
                 setPayableMeals(currentMonthData.tiffinMeals);
                 setTotalAmount(currentMonthData.totalAmount);
                 setPaidAmount(currentMonthData.paidAmount || 0);
-                setPendingAmount(currentMonthData.pendingAmount || currentMonthData.totalAmount);
+                setPendingAmount(currentMonthData.pendingAmount);
                 setPaidMeals(currentMonthData.paidMeals || 0);
                 setPendingMeals(currentMonthData.pendingMeals || currentMonthData.tiffinMeals);
                 setOrderId(currentMonthData.invoiceNumber);
@@ -260,37 +260,29 @@ export default function Timetable() {
         }
     };
 
-    const markPaidRange = async () => {
+    const openPaidModal = async () => {
         try {
-            setDisableBtn(true);
-            const user = localStorage.getItem("user");
-            if (!user) {
-                nav.push("/login");
-                return;
-            }
-
-            const parsedUser = JSON.parse(user);
-            const userId = parsedUser._id;
+            const user = JSON.parse(localStorage.getItem("user")!);
             const formattedMonth = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
 
-            const payload = { userId, month: formattedMonth, startDay, endDay };
-            await axiosInstance.post(`/payment/mark-paid-range`, payload);
+            const eligibleRes = await axiosInstance.get(`/payment/eligible-paid-days`, {
+                params: { userId: user._id, month: formattedMonth }
+            });
+            const eligible = eligibleRes.data.data || [];
 
-            toast({ variant: "success", title: `Marked days ${startDay} to ${endDay} as paid.` });
-            setStartDay("01");
-            setEndDay("31");
-            setShowPaidRangeModal(false);
-            await fetchMonthData(currentMonth);
-        } catch (error: any) {
-            if (error.status === 403) {
-                localStorage.removeItem("token");
-                nav.push("/login");
-                toast({ variant: "error", title: "Session Expired, Please login again" });
-            } else {
-                toast({ variant: "error", title: `Error: ${error.response?.data?.message || error.message}` });
-            }
-        } finally {
-            setDisableBtn(false);
+            const paidRes = await axiosInstance.get(`/payment/get-paid-days`, {
+                params: { userId: user._id, month: formattedMonth }
+            });
+            const alreadyPaid = paidRes.data.data || [];
+
+            setEligibleDays(eligible);
+            setSelectedPaidDays(new Set(alreadyPaid)); // pre-check
+            setShowPaidRangeModal(true);
+        } catch (err: any) {
+            toast({
+                variant: "error",
+                title: err.response?.data?.message || "Failed to load payable days"
+            });
         }
     };
 
@@ -529,8 +521,8 @@ export default function Timetable() {
                     </div>
 
                     {pendingAmount > 0 && (
-                        <Button variant="outline" className="w-full" onClick={() => setShowPaidRangeModal(true)} disabled={disableBtn}>
-                            Mark Paid Range
+                        <Button variant="outline" className="w-full" onClick={openPaidModal} disabled={disableBtn}>
+                            Mark Paid Days
                         </Button>
                     )}
                     <button disabled={disableBtn} className="w-full bg-green-500 text-white py-2 px-4 rounded-md shadow-lg hover:bg-green-600 transition-all disabled:opacity-50" onClick={generatePayment}>
@@ -565,26 +557,80 @@ export default function Timetable() {
             </Dialog>
 
             {/* Paid Range Modal */}
+            {/* Paid Range Modal – NOW SHOWS ONLY TAKEN DAYS */}
             <Dialog open={showPaidRangeModal} onOpenChange={setShowPaidRangeModal}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Mark Paid Range</DialogTitle>
-                        <DialogDescription>Specify the start and end days to mark all taken meals in the range as paid.</DialogDescription>
+                        <DialogTitle>Mark Paid Days</DialogTitle>
+                        <DialogDescription>
+                            Select the days you have paid for (only days with taken meals are shown).
+                        </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
-                        <div>
-                            <Label htmlFor="startDay">Start Day (01-31)</Label>
-                            <Input id="startDay" type="text" value={startDay} onChange={(e) => setStartDay(e.target.value)} placeholder="01" maxLength={2} />
-                        </div>
-                        <div>
-                            <Label htmlFor="endDay">End Day (01-31)</Label>
-                            <Input id="endDay" type="text" value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="31" maxLength={2} />
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setShowPaidRangeModal(false)}>Cancel</Button>
-                            <Button onClick={markPaidRange} disabled={disableBtn || !startDay || !endDay}>Mark Paid</Button>
-                        </DialogFooter>
+
+                    <div className="max-h-64 overflow-y-auto space-y-2 py-2">
+                        {eligibleDays.length === 0 ? (
+                            <p className="text-sm text-gray-500 text-center py-4">
+                                No taken meals this month
+                            </p>
+                        ) : (
+                            eligibleDays.map(day => (
+                                <div key={day} className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id={`paid-${day}`}
+                                        checked={selectedPaidDays.has(day)}
+                                        onCheckedChange={(checked) => {
+                                            const newSet = new Set(selectedPaidDays);
+                                            checked ? newSet.add(day) : newSet.delete(day);
+                                            setSelectedPaidDays(newSet);
+                                        }}
+                                    />
+                                    <Label htmlFor={`paid-${day}`} className="cursor-pointer">
+                                        Day {parseInt(day, 10)}
+                                    </Label>
+                                </div>
+                            ))
+                        )}
                     </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowPaidRangeModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={async () => {
+                                if (selectedPaidDays.size === 0) {
+                                    toast({ variant: "warning", title: "Select at least one day" });
+                                    return;
+                                }
+
+                                try {
+                                    setDisableBtn(true);
+                                    const user = JSON.parse(localStorage.getItem("user")!);
+                                    const formattedMonth = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
+
+                                    await axiosInstance.post(`/payment/mark-paid-selected`, {
+                                        userId: user._id,
+                                        month: formattedMonth,
+                                        selectedDays: Array.from(selectedPaidDays)
+                                    });
+
+                                    toast({ variant: "success", title: "Paid days updated!" });
+                                    setShowPaidRangeModal(false);
+                                    await fetchMonthData(currentMonth);
+                                } catch (err: any) {
+                                    toast({
+                                        variant: "error",
+                                        title: err.response?.data?.message || "Failed to mark paid"
+                                    });
+                                } finally {
+                                    setDisableBtn(false);
+                                }
+                            }}
+                            disabled={disableBtn || selectedPaidDays.size === 0}
+                        >
+                            Confirm Paid
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

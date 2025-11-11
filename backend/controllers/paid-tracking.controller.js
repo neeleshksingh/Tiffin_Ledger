@@ -1,21 +1,7 @@
 const mongoose = require('mongoose');
-const { ObjectId } = mongoose.Types;
 const PaidTracking = require('../models/paid-tracking');
 const TiffinTracking = require('../models/tiffin-tracking');
 const User = require('../models/user');
-const Vendor = require('../models/vendor');
-
-const convertDaysToNestedMap = (daysObj) => {
-    const daysMap = new Map();
-    for (const [day, mealsObj] of Object.entries(daysObj || {})) {
-        const mealsMap = new Map();
-        for (const [meal, value] of Object.entries(mealsObj)) {
-            mealsMap.set(meal, !!value);
-        }
-        daysMap.set(day, mealsMap);
-    }
-    return daysMap;
-};
 
 const flattenDaysForResponse = (daysMap) => {
     return Object.fromEntries(
@@ -26,245 +12,121 @@ const flattenDaysForResponse = (daysMap) => {
     );
 };
 
-exports.updatePaidRange = async (req, res) => {
-    let { userId, month, startDay, endDay } = req.body;
+exports.getEligiblePaidDays = async (req, res) => {
+    const { userId, month } = req.query;
 
-    if (!userId || !month || !startDay || !endDay) {
-        return res.status(400).json({ message: 'Invalid request. Missing required fields: userId, month, startDay, or endDay.' });
+    if (!userId || !month) {
+        return res.status(400).json({ message: 'userId and month are required' });
     }
 
     let parsedUserId;
-    try {
-        parsedUserId = new ObjectId(userId);
-    } catch (error) {
-        return res.status(400).json({ message: 'Invalid userId format. Must be a valid ObjectId.' });
-    }
+    try { parsedUserId = new mongoose.Types.ObjectId(userId); }
+    catch { return res.status(400).json({ message: 'Invalid userId' }); }
 
     try {
         const user = await User.findById(parsedUserId).select('messId');
-        if (!user || !user.messId) {
-            return res.status(400).json({ message: 'User not found or no vendor assigned. Assign a vendor first.' });
-        }
+        if (!user?.messId) return res.status(400).json({ message: 'No vendor assigned' });
+
         const vendorId = user.messId;
 
-        const tiffinTracking = await TiffinTracking.findOne({ userId: parsedUserId, vendorId, month });
-        if (!tiffinTracking) {
-            return res.status(404).json({ message: 'No tiffin tracking data found for this month.' });
+        const tiffin = await TiffinTracking.findOne({ userId: parsedUserId, vendorId, month });
+        if (!tiffin) return res.status(200).json({ data: [] });
+
+        const eligible = [];
+        for (const [dayKey, mealsMap] of tiffin.days.entries()) {
+            const taken = Array.from(mealsMap.entries()).some(([_, v]) => v);
+            if (taken) eligible.push(dayKey);
         }
 
-        const startNum = parseInt(startDay);
-        const endNum = parseInt(endDay);
-        if (isNaN(startNum) || isNaN(endNum) || startNum > endNum) {
-            return res.status(400).json({ message: 'Invalid startDay or endDay. Must be valid numbers with start <= end.' });
-        }
+        eligible.sort((a, b) => parseInt(a) - parseInt(b));
 
-        let paidTracking = await PaidTracking.findOne({ userId: parsedUserId, vendorId, month });
-
-        if (!paidTracking) {
-            paidTracking = new PaidTracking({
-                userId: parsedUserId,
-                vendorId,
-                month,
-                days: new Map(),
-            });
-        }
-
-        for (let dayNum = startNum; dayNum <= endNum; dayNum++) {
-            const dayKey = dayNum.toString().padStart(2, '0');
-            const tiffinDayMeals = tiffinTracking.days.get(dayKey);
-
-            if (!tiffinDayMeals || Array.from(tiffinDayMeals.entries()).filter(([_, taken]) => taken).length === 0) {
-                continue;
-            }
-
-            if (!paidTracking.days.has(dayKey)) {
-                paidTracking.days.set(dayKey, new Map());
-            }
-            const paidDayMeals = paidTracking.days.get(dayKey);
-
-            Array.from(tiffinDayMeals.entries()).forEach(([mealType, taken]) => {
-                if (taken) {
-                    paidDayMeals.set(mealType, true);
-                }
-            });
-
-            paidTracking.days.set(dayKey, paidDayMeals);
-        }
-
-        paidTracking.markModified('days');
-        await paidTracking.save();
-
-        const savedFetched = await PaidTracking.findById(paidTracking._id).populate('userId', 'name email').populate('vendorId', 'shopName');
-        const responseData = {
-            ...savedFetched.toObject(),
-            days: flattenDaysForResponse(savedFetched.days)
-        };
-
-        res.status(200).json({ message: 'Paid range updated successfully', data: responseData });
-    } catch (error) {
-        console.error('Update error:', error);
-        res.status(500).json({ message: 'Error updating paid data', error: error.message });
+        res.status(200).json({ data: eligible });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 
-exports.updatePaidTracking = async (req, res) => {
-    let { userId, month, days: incomingDays } = req.body;
+exports.markPaidSelectedDays = async (req, res) => {
+    const { userId, month, selectedDays } = req.body;
 
-    if (!userId || !month || !incomingDays) {
-        return res.status(400).json({ message: 'Invalid request. Missing required fields: userId, month, or days.' });
+    if (!userId || !month || !Array.isArray(selectedDays) || selectedDays.length === 0) {
+        return res.status(400).json({ message: 'userId, month, and selectedDays[] required' });
     }
 
     let parsedUserId;
-    try {
-        parsedUserId = new ObjectId(userId);
-    } catch (error) {
-        return res.status(400).json({ message: 'Invalid userId format. Must be a valid ObjectId.' });
-    }
+    try { parsedUserId = new mongoose.Types.ObjectId(userId); }
+    catch { return res.status(400).json({ message: 'Invalid userId' }); }
 
     try {
         const user = await User.findById(parsedUserId).select('messId');
-        if (!user || !user.messId) {
-            return res.status(400).json({ message: 'User not found or no vendor assigned. Assign a vendor first.' });
-        }
+        if (!user?.messId) return res.status(400).json({ message: 'No vendor assigned' });
+
         const vendorId = user.messId;
 
-        const daysMap = convertDaysToNestedMap(incomingDays);
+        const tiffin = await TiffinTracking.findOne({ userId: parsedUserId, vendorId, month });
+        if (!tiffin) return res.status(404).json({ message: 'No tiffin data for this month' });
 
-        let paidTracking = await PaidTracking.findOne({ userId: parsedUserId, vendorId, month });
+        let paid = await PaidTracking.findOne({ userId: parsedUserId, vendorId, month });
+        if (!paid) {
+            paid = new PaidTracking({ userId: parsedUserId, vendorId, month, days: new Map() });
+        }
 
-        if (!paidTracking) {
-            paidTracking = new PaidTracking({
-                userId: parsedUserId,
-                vendorId,
-                month,
-                days: daysMap,
-            });
-        } else {
-            for (const [day, mealsObj] of Object.entries(incomingDays)) {
-                if (!paidTracking.days.has(day)) {
-                    paidTracking.days.set(day, new Map());
-                }
-                const dayMeals = paidTracking.days.get(day);
-                for (const [meal, value] of Object.entries(mealsObj)) {
-                    if (value) {
-                        dayMeals.set(meal, true);
-                    }
-                }
-                paidTracking.days.set(day, dayMeals);
+        for (const dayKey of selectedDays) {
+            const mealsMap = tiffin.days.get(dayKey);
+            if (!mealsMap) continue;
+
+            if (!paid.days.has(dayKey)) paid.days.set(dayKey, new Map());
+
+            const paidDay = paid.days.get(dayKey);
+            for (const [meal, taken] of mealsMap.entries()) {
+                if (taken) paidDay.set(meal, true);
             }
-
-            paidTracking.markModified('days');
+            paid.days.set(dayKey, paidDay);
         }
 
-        await paidTracking.save();
+        paid.markModified('days');
+        await paid.save();
 
-        const savedFetched = await PaidTracking.findById(paidTracking._id).populate('userId', 'name email').populate('vendorId', 'shopName');
-        const responseData = {
-            ...savedFetched.toObject(),
-            days: flattenDaysForResponse(savedFetched.days)
-        };
-
-        res.status(200).json({ message: 'Paid tracking updated successfully', data: responseData });
-    } catch (error) {
-        console.error('Update error:', error);
-        res.status(500).json({ message: 'Error updating paid tracking data', error: error.message });
-    }
-};
-
-const calculateTotalAmount = (mealsCount, rate) => {
-    return mealsCount * rate;
-};
-
-exports.getPaidTrackingData = async (req, res) => {
-    let { userId, month } = req.query;
-
-    if (!userId) {
-        return res.status(400).json({ message: 'Invalid request. Missing required field: userId.' });
-    }
-
-    let parsedUserId;
-    try {
-        parsedUserId = new ObjectId(userId);
-    } catch (error) {
-        return res.status(400).json({ message: 'Invalid userId format. Must be a valid ObjectId.' });
-    }
-
-    try {
-        const user = await User.findById(parsedUserId).select('messId');
-        if (!user || !user.messId) {
-            return res.status(400).json({ message: 'User not found or no vendor assigned.' });
-        }
-        const vendorId = user.messId;
-
-        const query = { userId: parsedUserId, vendorId };
-        if (month) query.month = month;
-
-        const paidTrackingList = await PaidTracking.find(query)
+        const saved = await PaidTracking.findById(paid._id)
             .populate('userId', 'name email')
-            .populate('vendorId', 'shopName')
-            .exec();
+            .populate('vendorId', 'shopName');
 
-        if (!paidTrackingList || paidTrackingList.length === 0) {
-            return res.status(200).json({ message: 'No paid data found for the given userId (and optional month) with current vendor.' });
-        }
-
-        const vendor = await Vendor.findById(vendorId);
-        if (!vendor) {
-            return res.status(404).json({ message: 'Vendor not found.' });
-        }
-        const ratePerMeal = vendor.amountPerDay;
-
-        const tiffinQuery = { userId: parsedUserId, vendorId };
-        if (month) tiffinQuery.month = month;
-        const tiffinTrackingList = await TiffinTracking.find(tiffinQuery);
-
-        const processedData = paidTrackingList.map((paidTracking) => {
-            const matchingTiffin = tiffinTrackingList.find(t => t.month === paidTracking.month);
-            if (!matchingTiffin) {
-                return { ...paidTracking.toObject(), totalMeals: 0, paidMeals: 0, pendingMeals: 0, paidAmount: 0, pendingAmount: 0 };
+        res.status(200).json({
+            message: 'Selected days marked as paid',
+            data: {
+                ...saved.toObject(),
+                days: flattenDaysForResponse(saved.days)
             }
-
-            let totalMeals = 0;
-            let paidMeals = 0;
-            Array.from(matchingTiffin.days.entries()).forEach(([dayKey, tiffinDayMeals]) => {
-                const dayTakenCount = Array.from(tiffinDayMeals.entries()).filter(([_, taken]) => taken).length;
-                totalMeals += dayTakenCount;
-
-                const paidDay = paidTracking.days.get(dayKey) || new Map();
-                let dayPaidCount = 0;
-                Array.from(tiffinDayMeals.entries()).forEach(([mealKey, taken]) => {
-                    if (taken && paidDay.get(mealKey)) {
-                        dayPaidCount++;
-                    }
-                });
-                paidMeals += dayPaidCount;
-            });
-
-            const pendingMeals = totalMeals - paidMeals;
-            const totalAmount = calculateTotalAmount(totalMeals, ratePerMeal);
-            const paidAmount = calculateTotalAmount(paidMeals, ratePerMeal);
-            const pendingAmount = calculateTotalAmount(pendingMeals, ratePerMeal);
-
-            return {
-                ...paidTracking.toObject(),
-                days: Object.fromEntries(
-                    Array.from(paidTracking.days.entries()).map(([day, meals]) => [
-                        day,
-                        Object.fromEntries(Array.from(meals.entries()))
-                    ])
-                ),
-                totalMeals,
-                paidMeals,
-                pendingMeals,
-                totalAmount,
-                paidAmount,
-                amountToBePaid: pendingAmount,
-            };
         });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
 
-        res.status(200).json({ data: processedData });
-    } catch (error) {
-        console.error('Get error:', error);
-        res.status(500).json({ message: 'Error retrieving paid tracking data', error: error.message });
+exports.getPaidDays = async (req, res) => {
+    const { userId, month } = req.query;
+    if (!userId || !month) return res.status(400).json({ message: 'userId and month required' });
+
+    try {
+        const parsedUserId = new mongoose.Types.ObjectId(userId);
+        const user = await User.findById(parsedUserId).select('messId');
+        if (!user?.messId) return res.status(400).json({ message: 'No vendor' });
+
+        const paid = await PaidTracking.findOne({ userId: parsedUserId, vendorId: user.messId, month });
+        if (!paid) return res.status(200).json({ data: [] });
+
+        const paidDays = [];
+        for (const [dayKey, mealsMap] of paid.days.entries()) {
+            const hasPaidMeal = Array.from(mealsMap.values()).some(v => v);
+            if (hasPaidMeal) paidDays.push(dayKey);
+        }
+
+        paidDays.sort((a, b) => parseInt(a) - parseInt(b));
+        res.status(200).json({ data: paidDays });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
     }
 };
