@@ -3,7 +3,6 @@ const TiffinTracking = require('../models/tiffin-tracking');
 const Joi = require('joi');
 const redisClient = require('../config/redis');
 
-
 const profileSchema = Joi.object({
     userId: Joi.string().hex().length(24).required(),
     name: Joi.string().min(2).max(50),
@@ -25,6 +24,37 @@ const profileSchema = Joi.object({
 
 const getCacheKey = (userId) => `profile:${userId}`;
 
+const redis = {
+    async get(key) {
+        try {
+            if (!redisClient.isOpen) return null;
+            const val = await redisClient.get(key);
+            return val;
+        } catch (err) {
+            console.warn('Redis GET failed:', err.message);
+            return null;
+        }
+    },
+
+    async set(key, value, ttl = 300) {
+        try {
+            if (!redisClient.isOpen) return;
+            await redisClient.set(key, value, { EX: ttl });
+        } catch (err) {
+            console.warn('Redis SET failed:', err.message);
+        }
+    },
+
+    async del(key) {
+        try {
+            if (!redisClient.isOpen) return;
+            await redisClient.del(key);
+        } catch (err) {
+            console.warn('Redis DEL failed:', err.message);
+        }
+    }
+};
+
 exports.addOrUpdateProfile = async (req, res) => {
     const { error, value } = profileSchema.validate(req.body);
     if (error) return res.status(400).json({ message: error.details[0].message });
@@ -36,11 +66,7 @@ exports.addOrUpdateProfile = async (req, res) => {
             { new: true, upsert: true, setDefaultsOnInsert: true }
         ).select('-password');
 
-        try {
-            await redisClient.del(getCacheKey(value.userId));
-        } catch (cacheErr) {
-            console.warn('Redis cache invalidation failed:', cacheErr.message);
-        }
+        await redis.del(getCacheKey(value.userId));
 
         res.status(200).json({
             message: 'Profile updated successfully',
@@ -60,81 +86,80 @@ exports.getProfileById = async (req, res) => {
     }
 
     try {
-        let cached = null;
-        try {
-            cached = await redisClient.get(getCacheKey(userId));
-        } catch (cacheErr) {
-            console.warn('Redis unavailable, skipping cache:', cacheErr.message);
-        }
+        let responseData;
+        const cached = await redis.get(getCacheKey(userId));
 
         if (cached) {
-            return res.status(200).json({
-                message: 'Profile fetched (from cache)',
-                data: JSON.parse(cached),
-                cached: true
-            });
+            try {
+                responseData = JSON.parse(cached);
+            } catch (e) {
+                console.warn('Cache corrupted, ignoring:', e.message);
+            }
         }
 
-        const user = await User.findById(userId)
-            .select('-password -blockedByVendors')
-            .populate('messId', 'shopName address amountPerDay gstNumber');
+        if (!responseData) {
+            const user = await User.findById(userId)
+                .select('-password -blockedByVendors')
+                .populate('messId', 'shopName address amountPerDay gstNumber');
 
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        const vendorId = user.messId?._id;
-
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-
-        const recentMonths = await TiffinTracking.find({
-            userId,
-            vendorId,
-            month: { $gte: threeMonthsAgo.toISOString().slice(0, 7) }
-        }).sort({ month: -1 });
-
-        const tiffinOverview = recentMonths.map(tracking => {
-            let totalMeals = 0;
-            const takenDays = [];
-
-            for (const [day, meals] of tracking.days.entries()) {
-                const count = Array.from(meals.values()).filter(Boolean).length;
-                if (count > 0) {
-                    totalMeals += count;
-                    takenDays.push(day);
-                }
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
             }
 
-            return {
-                month: tracking.month,
-                totalDays: tracking.days.size,
-                takenDays: takenDays.length,
-                totalMeals,
+            const vendorId = user.messId?._id;
+
+            const allMonths = await TiffinTracking.find({
+                userId,
+                vendorId
+            }).sort({ month: 1 });
+
+            const tiffinOverview = allMonths.map(tracking => {
+                const [year, month] = tracking.month.split('-').map(Number);
+                const totalDaysInMonth = new Date(year, month, 0).getDate();
+                const daysArray = [];
+
+                for (let d = 1; d <= totalDaysInMonth; d++) {
+                    const dayStr = d.toString().padStart(2, '0');
+                    const mealsMap = tracking.days.get(dayStr) || new Map();
+
+                    const meals = { breakfast: false, lunch: false, dinner: false };
+                    for (const [meal, taken] of mealsMap.entries()) {
+                        if (meal in meals) meals[meal] = taken;
+                    }
+
+                    daysArray.push({ date: dayStr, meals });
+                }
+
+                const totalMeals = daysArray.reduce((sum, day) =>
+                    sum + Object.values(day.meals).filter(Boolean).length, 0
+                );
+
+                return {
+                    month: tracking.month,
+                    totalDays: totalDaysInMonth,
+                    totalMeals,
+                    tiffinTakenDays: totalMeals,
+                    days: daysArray
+                };
+            });
+
+            responseData = {
+                user,
+                vendor: user.messId,
+                tiffinOverview
             };
-        });
 
-        const response = {
-            user,
-            vendor: user.messId,
-            tiffinOverview,
-            lastUpdated: new Date()
-        };
-
-        try {
-            await redisClient.setEx(getCacheKey(userId), 300, JSON.stringify(response));
-        } catch (cacheErr) {
-            console.warn('Failed to cache profile:', cacheErr.message);
+            await redis.set(getCacheKey(userId), JSON.stringify(responseData), 300);
         }
 
         res.status(200).json({
-            message: 'Profile fetched successfully',
-            data: response
+            message: 'User profile fetched successfully',
+            data: responseData
         });
 
     } catch (error) {
         console.error('Error fetching profile:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Error fetching profile', error });
     }
 };
 
@@ -152,12 +177,7 @@ exports.deleteProfile = async (req, res) => {
         }
 
         await TiffinTracking.deleteMany({ userId });
-
-        try {
-            await redisClient.del(getCacheKey(userId));
-        } catch (cacheErr) {
-            console.warn('Redis cleanup failed:', cacheErr.message);
-        }
+        await redis.del(getCacheKey(userId));
 
         res.status(200).json({ message: 'Profile deleted successfully' });
     } catch (error) {

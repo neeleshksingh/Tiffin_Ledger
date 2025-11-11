@@ -201,7 +201,7 @@ export default function Profile({ params }: PageProps) {
 
     const calculateTiffinAttendance = (tiffinOverview: TiffinOverview | null): string => {
         if (!tiffinOverview) return '0.00';
-        const daysWithTiffin = tiffinOverview.days.filter(day =>
+        const daysWithTiffin = tiffinOverview.days?.filter(day =>
             Object.values(day.meals).some(Boolean)
         ).length;
         const attendancePercentage = (daysWithTiffin / tiffinOverview.totalDays) * 100;
@@ -210,7 +210,7 @@ export default function Profile({ params }: PageProps) {
 
     const getTiffinTakenDays = (tiffinOverview: TiffinOverview | null): number => {
         if (!tiffinOverview) return 0;
-        return tiffinOverview.days.filter(day =>
+        return tiffinOverview.days?.filter(day =>
             Object.values(day.meals).some(Boolean)
         ).length;
     };
@@ -390,7 +390,7 @@ export default function Profile({ params }: PageProps) {
                                             <div className="grid grid-cols-7 gap-1">
                                                 {Array.from({ length: currentTiffinOverview.totalDays }, (_, i) => {
                                                     const dateString = (i + 1).toString().padStart(2, '0');
-                                                    const dayInfo = currentTiffinOverview.days.find(day => day.date === dateString);
+                                                    const dayInfo = currentTiffinOverview.days?.find(day => day.date === dateString);
                                                     const hasTiffin = dayInfo ? Object.values(dayInfo.meals).some(Boolean) : false;
                                                     return (
                                                         <div
