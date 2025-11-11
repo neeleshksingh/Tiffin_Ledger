@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Search, Filter, X, Copy, LockOpen, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -18,6 +18,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { IndianRupee } from "lucide-react";
 
 interface User {
     _id: string;
@@ -51,6 +53,9 @@ export default function VendorCustomers() {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [blockReason, setBlockReason] = useState("");
     const [isBlocking, setIsBlocking] = useState(false);
+
+    const [paymentStatus, setPaymentStatus] = useState<Record<string, any>>({});
+    const [loadingPayments, setLoadingPayments] = useState<Set<string>>(new Set());
 
     // === FETCH FRESH DATA FROM API ===
     const fetchAssignedUsers = async () => {
@@ -101,6 +106,31 @@ export default function VendorCustomers() {
             return matchesSearch && matchesMeal;
         });
     }, [data, searchQuery, selectedMeals]);
+
+    const fetchPaymentStatus = useCallback(async (userId: string) => {
+        if (paymentStatus[userId] || loadingPayments.has(userId)) return;
+
+        setLoadingPayments(prev => new Set(prev).add(userId));
+        try {
+            const res = await axiosInstance.get(`/vendor/transactions`);
+            const data = res.data;
+
+            const statusMap: Record<string, any> = {};
+            data.users.forEach((u: any) => {
+                statusMap[u.user._id] = u.summary;
+            });
+
+            setPaymentStatus(prev => ({ ...prev, ...statusMap }));
+        } catch (err) {
+            console.error("Failed to fetch payment status:", err);
+        } finally {
+            setLoadingPayments(prev => {
+                const next = new Set(prev);
+                next.delete(userId);
+                return next;
+            });
+        }
+    }, [paymentStatus, loadingPayments]);
 
     const toggleMeal = (meal: string) => {
         setSelectedMeals(prev => prev.includes(meal) ? prev.filter(m => m !== meal) : [...prev, meal]);
@@ -250,7 +280,9 @@ export default function VendorCustomers() {
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -20 }}
                                         transition={{ delay: i * 0.015 }}
-                                        className="bg-white/90 backdrop-blur-sm rounded-2xl shadow hover:shadow-md border border-gray-100 transition-all duration-200"
+                                        className="bg-white/90 backdrop-blur-sm rounded-2xl shadow hover:shadow-md border border-gray-100 transition-all duration-200 hover:cursor-pointer"
+                                        onClick={() => router.push(`/vendor/customers/${user._id}`)}
+                                        onMouseEnter={() => fetchPaymentStatus(user._id)}
                                     >
                                         <div className="p-4 flex items-center justify-between gap-4">
                                             {/* Left: Avatar + Details */}
@@ -288,8 +320,8 @@ export default function VendorCustomers() {
                                             <button
                                                 onClick={() => openBlockDialog(user)}
                                                 className={`p-2 rounded-lg transition ${user.blockedByVendor
-                                                        ? 'bg-gray-100 hover:bg-gray-200'
-                                                        : 'bg-red-100 hover:bg-red-200'
+                                                    ? 'bg-gray-100 hover:bg-gray-200'
+                                                    : 'bg-red-100 hover:bg-red-200'
                                                     }`}
                                                 title={user.blockedByVendor ? 'Unblock' : 'Block Customer'}
                                             >
@@ -320,7 +352,7 @@ export default function VendorCustomers() {
                                             </div>
                                         </div>
 
-                                        {/* Bottom: Full Address + Meals on Mobile */}
+                                        {/* Bottom: Address + Meals + Payment Status */}
                                         <div className="px-4 pb-3 text-xs text-gray-600 border-t border-gray-100 pt-2">
                                             <div className="flex items-center justify-between">
                                                 <p className="truncate">
@@ -337,6 +369,26 @@ export default function VendorCustomers() {
                                                     ))}
                                                 </div>
                                             </div>
+
+                                            {/* === PAYMENT STATUS BADGES === */}
+                                            {paymentStatus[user._id] ? (
+                                                <div className="flex gap-2 mt-2 justify-end">
+                                                    <Badge variant="secondary" className="text-xs font-medium bg-green-100 text-green-700">
+                                                        <IndianRupee className="w-3 h-3 mr-0.5" />
+                                                        {paymentStatus[user._id].paidAmount}
+                                                    </Badge>
+                                                    {paymentStatus[user._id].dueAmount > 0 && (
+                                                        <Badge variant="secondary" className="text-xs font-medium bg-red-100 text-red-700">
+                                                            <IndianRupee className="w-3 h-3 mr-0.5" />
+                                                            {paymentStatus[user._id].dueAmount} due
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            ) : loadingPayments.has(user._id) ? (
+                                                <div className="flex justify-end mt-2">
+                                                    <span className="text-xs text-gray-400">Loading payment...</span>
+                                                </div>
+                                            ) : null}
                                         </div>
                                     </motion.div>
                                 ))

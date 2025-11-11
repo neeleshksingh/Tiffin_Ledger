@@ -3,6 +3,7 @@ const VendorUser = require('../models/vendor-user');
 const Meal = require('../models/meal');
 const User = require('../models/user');
 const PaidTracking = require('../models/paid-tracking');
+const TiffinTracking = require('../models/tiffin-tracking');
 
 // @desc    Get logged-in vendor's profile + totalRevenue
 // @route   GET /api/vendors/profile
@@ -172,9 +173,148 @@ const getAssignedUsers = async (req, res) => {
     }
 };
 
+const getAllUsersPaymentStatus = async (req, res) => {
+    try {
+        const vendorId = req.vendorUser.vendorId._id;
+        const amountPerDay = req.vendorUser.vendorId.amountPerDay;
+
+        const users = await User.find({ messId: vendorId }).select('name email contact');
+
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const monthKey = `${year}-${month}`;
+
+        const [tiffinTrackings, paidTrackings] = await Promise.all([
+            TiffinTracking.find({ vendorId, month: monthKey }),
+            PaidTracking.find({ vendorId, month: monthKey })
+        ]);
+
+        const tiffinMap = new Map(tiffinTrackings.map(t => [t.userId.toString(), t.days]));
+        const paidMap = new Map(paidTrackings.map(p => [p.userId.toString(), p.days]));
+
+        const results = users.map(user => {
+            const userIdStr = user._id.toString();
+            const tiffinDays = tiffinMap.get(userIdStr) || new Map();
+            const paidDays = paidMap.get(userIdStr) || new Map();
+
+            let totalDelivered = 0;
+            let totalPaid = 0;
+
+            for (const daysMap of tiffinDays.values()) {
+                for (const delivered of daysMap.values()) {
+                    if (delivered) totalDelivered++;
+                }
+            }
+
+            for (const [mealType, daysMap] of paidDays.entries()) {
+                const tiffinMapForMeal = tiffinDays.get(mealType) || new Map();
+                for (const [day, isPaid] of daysMap.entries()) {
+                    if (isPaid && tiffinMapForMeal.get(day) === true) {
+                        totalPaid++;
+                    }
+                }
+            }
+
+            const totalAmount = totalDelivered * amountPerDay;
+            const paidAmount = totalPaid * amountPerDay;
+            const dueAmount = totalAmount - paidAmount;
+
+            return {
+                user: {
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    phone: user.contact?.phone || null
+                },
+                month: monthKey,
+                summary: {
+                    totalDelivered,
+                    totalPaid,
+                    totalAmount,
+                    paidAmount,
+                    dueAmount
+                }
+            };
+        });
+
+        res.status(200).json({
+            month: monthKey,
+            amountPerDay,
+            users: results
+        });
+    } catch (err) {
+        console.error("Error in getAllUsersPaymentStatus:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+const getUserPaymentHistory = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const vendorId = req.vendorUser.vendorId._id;
+        const amountPerDay = req.vendorUser.vendorId.amountPerDay;
+
+        const user = await User.findOne({ _id: userId, messId: vendorId });
+        if (!user) return res.status(404).json({ message: 'User not assigned' });
+
+        const months = await TiffinTracking.distinct('month', { userId, vendorId });
+        const paidMonths = await PaidTracking.distinct('month', { userId, vendorId });
+        const allMonths = [...new Set([...months, ...paidMonths])].sort();
+
+        const history = [];
+
+        for (const monthKey of allMonths) {
+            const [tiffin, paid] = await Promise.all([
+                TiffinTracking.findOne({ userId, vendorId, month: monthKey }),
+                PaidTracking.findOne({ userId, vendorId, month: monthKey })
+            ]);
+
+            let totalDelivered = 0;
+            let totalPaid = 0;
+
+            const tiffinDays = tiffin?.days || new Map();
+            const paidDays = paid?.days || new Map();
+
+            for (const daysMap of tiffinDays.values()) {
+                for (const delivered of daysMap.values()) {
+                    if (delivered) totalDelivered++;
+                }
+            }
+
+            for (const [meal, daysMap] of paidDays.entries()) {
+                const tiffinMap = tiffinDays.get(meal) || new Map();
+                for (const [day, isPaid] of daysMap.entries()) {
+                    if (isPaid && tiffinMap.get(day) === true) totalPaid++;
+                }
+            }
+
+            const totalAmount = totalDelivered * amountPerDay;
+            const paidAmount = totalPaid * amountPerDay;
+            const dueAmount = totalAmount - paidAmount;
+
+            history.push({
+                month: monthKey,
+                totalDelivered,
+                totalPaid,
+                totalAmount,
+                paidAmount,
+                dueAmount
+            });
+        }
+
+        res.json({ name: user.name, history });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
 module.exports = {
     getVendorProfile,
     updateVendorProfile,
     deleteVendorProfile,
-    getAssignedUsers
+    getAssignedUsers,
+    getAllUsersPaymentStatus,
+    getUserPaymentHistory
 };
