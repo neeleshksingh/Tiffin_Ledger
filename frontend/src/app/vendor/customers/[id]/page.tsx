@@ -36,9 +36,7 @@ export default function CustomerPaymentHistory() {
 
         const fetchHistory = async () => {
             try {
-                const res = await axiosInstance.get(
-                    `/vendor/users/${id}/payment-history`
-                );
+                const res = await axiosInstance.get(`/vendor/users/${id}/payment-history`);
                 if (isMounted) {
                     setUserName(res.data.name);
                     setSummaries(res.data.history);
@@ -55,7 +53,6 @@ export default function CustomerPaymentHistory() {
         };
 
         fetchHistory();
-
         return () => {
             isMounted = false;
         };
@@ -65,22 +62,17 @@ export default function CustomerPaymentHistory() {
         <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-4">
             <div className="mx-auto max-w-5xl">
                 {/* Header */}
-                <div className="mb-6 flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => router.back()}
-                        className="rounded-full"
-                    >
+                <div className="sticky top-0 z-10 mb-6 flex items-center gap-3 bg-gradient-to-br from-orange-50 to-red-50 pb-3 -mt-4 pt-4">
+                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
-                    <h1 className="text-2xl font-bold text-orange-700">
-                        Payment History – {userName}
+                    <h1 className="text-xl sm:text-2xl font-bold text-orange-700 truncate">
+                        Payment History – {userName || "..."}
                     </h1>
                 </div>
 
-                {/* Table */}
-                <div className="overflow-hidden rounded-xl bg-white shadow-lg">
+                {/* Desktop Table */}
+                <div className="hidden sm:block overflow-x-auto rounded-xl bg-white shadow-lg">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-orange-50">
@@ -124,6 +116,43 @@ export default function CustomerPaymentHistory() {
                     </Table>
                 </div>
 
+                {/* Mobile Cards */}
+                <div className="sm:hidden space-y-3">
+                    {summaries.map((s) => (
+                        <div
+                            key={s.month}
+                            className="bg-white rounded-xl p-4 shadow-sm border border-orange-100 hover:shadow-md transition-shadow"
+                        >
+                            <div className="flex justify-between items-start mb-2">
+                                <h3 className="font-semibold text-orange-700">{s.month}</h3>
+                                <span className="text-xs text-gray-600">
+                                    {s.totalDelivered} delivered
+                                </span>
+                            </div>
+
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm">
+                                    Total: <IndianRupee className="inline h-3 w-3" />
+                                    {s.totalAmount}
+                                </span>
+
+                                {s.dueAmount > 0 ? (
+                                    <Badge variant="secondary" className="bg-red-100 text-red-700 text-xs">
+                                        <IndianRupee className="inline h-3 w-3 mr-0.5" />
+                                        {s.dueAmount} due
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+                                        <IndianRupee className="inline h-3 w-3 mr-0.5" />
+                                        {s.paidAmount}
+                                    </Badge>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Empty State */}
                 {summaries.length === 0 && (
                     <p className="mt-8 text-center text-gray-500">
                         No payment records yet.
