@@ -100,13 +100,22 @@ exports.getProfileById = async (req, res) => {
         if (!responseData) {
             const user = await User.findById(userId)
                 .select('-password -blockedByVendors')
-                .populate('messId', 'shopName address amountPerDay gstNumber');
+                .populate({
+                    path: 'messId',
+                    select: 'shopName address amountPerDay gstNumber availableMealTypes'
+                });
 
             if (!user) {
                 return res.status(404).json({ message: 'User not found' });
             }
 
-            const vendorId = user.messId?._id;
+            const vendor = user.messId;
+            if (!vendor) {
+                return res.status(404).json({ message: 'Vendor not found' });
+            }
+
+            const vendorId = vendor._id;
+            const mealTypes = vendor.availableMealTypes || [];
 
             const allMonths = await TiffinTracking.find({
                 userId,
@@ -122,30 +131,32 @@ exports.getProfileById = async (req, res) => {
                     const dayStr = d.toString().padStart(2, '0');
                     const mealsMap = tracking.days.get(dayStr) || new Map();
 
-                    const meals = { breakfast: false, lunch: false, dinner: false };
-                    for (const [meal, taken] of mealsMap.entries()) {
-                        if (meal in meals) meals[meal] = taken;
+                    const meals = {};
+                    mealTypes.forEach(type => meals[type] = false);
+
+                    for (const [key, taken] of mealsMap.entries()) {
+                        if (key in meals) meals[key] = taken;
                     }
 
                     daysArray.push({ date: dayStr, meals });
                 }
 
-                const totalMeals = daysArray.reduce((sum, day) =>
+                const totalTaken = daysArray.reduce((sum, day) =>
                     sum + Object.values(day.meals).filter(Boolean).length, 0
                 );
 
                 return {
                     month: tracking.month,
                     totalDays: totalDaysInMonth,
-                    totalMeals,
-                    tiffinTakenDays: totalMeals,
+                    totalMeals: totalTaken,
+                    tiffinTakenDays: totalTaken,
                     days: daysArray
                 };
             });
 
             responseData = {
                 user,
-                vendor: user.messId,
+                vendor,
                 tiffinOverview
             };
 
