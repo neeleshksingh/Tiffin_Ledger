@@ -4,7 +4,7 @@ import { useToast } from "@components/hooks/use-toast";
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Cookies from 'js-cookie';
 import Image from "next/image";
 import { Mail, Lock, ArrowRight, Loader2, Menu, X, UserCheck, Store } from 'lucide-react';
@@ -17,12 +17,30 @@ export default function Login() {
     const { toast } = useToast();
     const nav = useRouter();
 
-    // Shared form state
     const [form, setForm] = useState({
         email: "",
         password: "",
-        username: "", // for vendor
+        username: "",
     });
+
+    useEffect(() => {
+        const checkAuth = () => {
+            const customerToken = localStorage.getItem("token") || Cookies.get("token");
+            const vendorToken = localStorage.getItem("vendorToken") || Cookies.get("vendorToken");
+
+            if (customerToken) {
+                nav.replace("/dashboard");
+                return;
+            }
+
+            if (vendorToken) {
+                nav.replace("/vendor/dashboard");
+                return;
+            }
+        };
+
+        checkAuth();
+    }, [nav]);
 
     const handleChange = (e: any) => {
         const { name, value } = e.target;
@@ -36,7 +54,6 @@ export default function Login() {
         try {
             let response;
             if (isVendor) {
-                // Vendor Login
                 response = await axios.post(
                     `${process.env.NEXT_PUBLIC_API_ENDPOINT}/user/vendors/login`,
                     {
@@ -52,9 +69,8 @@ export default function Login() {
                 axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
                 toast({ variant: "success", title: `Welcome, ${user.vendor.shopName}!` });
-                nav.push("/vendor/dashboard"); // Vendor dashboard
+                nav.push("/vendor/dashboard");
             } else {
-                // Customer Login
                 response = await axios.post(
                     `${process.env.NEXT_PUBLIC_API_ENDPOINT}/user/signin`,
                     {
@@ -75,7 +91,7 @@ export default function Login() {
                 axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
                 toast({ variant: "success", title: `Welcome back, ${user.name}!` });
-                nav.push("/dashboard"); // Customer dashboard
+                nav.push("/dashboard");
             }
         } catch (err: any) {
             const msg = err.response?.data?.message || "Invalid credentials";

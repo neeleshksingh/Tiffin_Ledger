@@ -23,6 +23,7 @@ import {
 } from "@components/components/ui/alert-dialog"
 import axiosInstance from "@components/interceptors/axios.interceptor";
 import { useToast } from "@components/hooks/use-toast";
+import Cookies from 'js-cookie';
 
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -109,9 +110,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         try {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            Cookies.remove('token', { path: '/' });
+
+            localStorage.removeItem('vendorToken');
+            localStorage.removeItem('vendorUser');
+            Cookies.remove('vendorToken', { path: '/' });
+
             closeSidebar();
             router.push('/login');
         } catch (error) {
+            console.error('Logout error:', error);
             closeSidebar();
             router.push('/login');
         }

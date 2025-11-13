@@ -10,11 +10,57 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@components/components/ui/radio-group";
 
 type MealType = "breakfast" | "lunch" | "dinner";
 type DayMeals = Record<MealType, boolean>;
 type MonthDays = Record<string, DayMeals>;
+
+interface BillingInfo {
+    name: string;
+    gstin: string;
+    address: string;
+}
+interface VendorDetails {
+    _id: string;
+    name: string;
+    shopName: string;
+    address: string;
+    contactNumber: string;
+    amountPerDay: number;
+    gstNumber: string;
+    billingInfo: BillingInfo;
+    availableMealTypes: string[];
+}
+
+interface TiffinDay {
+    date: string;
+    meals: Record<MealType, boolean>;
+}
+interface TiffinOverview {
+    month: string;
+    totalDays: number;
+    totalMeals: number;
+    tiffinTakenDays: number;
+    days: TiffinDay[];
+}
+
+interface UserData {
+    data: {
+        user: {
+            _id: string;
+            name: string;
+            email: string;
+            createdAt: string;
+            updatedAt: string;
+            __v?: number;
+            messId: VendorDetails;
+            profilePic: string;
+        };
+        tiffinOverview: TiffinOverview[];
+        vendor: VendorDetails;
+    };
+}
 
 export default function Timetable() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -42,6 +88,13 @@ export default function Timetable() {
     const [isBlocked, setIsBlocked] = useState(false);
     const [blockReason, setBlockReason] = useState("");
     const [vendorContact, setVendorContact] = useState("");
+
+    const [vendors, setVendors] = useState<VendorDetails[]>([]);
+    const [selectedVendorId, setSelectedVendorId] = useState<string>('');
+    const [preferredMeals, setPreferredMeals] = useState<string[]>([]);
+    const [showVendorDialog, setShowVendorDialog] = useState(false);
+    const [isLoadingVendors, setIsLoadingVendors] = useState(false);
+    const [isAssigning, setIsAssigning] = useState(false);
 
     const getUserData = async () => {
         try {
@@ -260,6 +313,22 @@ export default function Timetable() {
         }
     };
 
+    const getVendors = async () => {
+        try {
+            setIsLoadingVendors(true);
+            const response = await axiosInstance.get<VendorDetails[]>(`/tiffin/vendors`);
+            setVendors(response.data);
+        } catch (error) {
+            console.error('Error fetching vendors:', error);
+            toast({
+                variant: "error",
+                title: "Error fetching vendors",
+            });
+        } finally {
+            setIsLoadingVendors(false);
+        }
+    };
+
     const openPaidModal = async () => {
         try {
             const user = JSON.parse(localStorage.getItem("user")!);
@@ -333,6 +402,61 @@ export default function Timetable() {
         } catch (error: any) {
             toast({ variant: "error", title: `Error: ${error.message || error}` });
         }
+    };
+
+    const assignVendor = async () => {
+        if (!selectedVendorId) return;
+        const selectedVendor = vendors.find(v => v._id === selectedVendorId);
+        if (!selectedVendor) return;
+
+        let finalPreferredMeals = preferredMeals;
+        if (finalPreferredMeals.length === 0) {
+            finalPreferredMeals = selectedVendor.availableMealTypes.length > 0
+                ? selectedVendor.availableMealTypes
+                : ["breakfast", "lunch", "dinner"];
+        }
+
+        const user = localStorage.getItem("user");
+        if (!user) {
+            nav.push("/login");
+            return;
+        }
+
+        const parsedUser = JSON.parse(user);
+
+        const payload = {
+            userId: parsedUser._id,
+            messId: selectedVendor._id,
+            preferredMealTypes: finalPreferredMeals
+        };
+
+        try {
+            setIsAssigning(true);
+            await axiosInstance.post(`/tiffin/assign-vendor`, payload);
+            toast({
+                variant: "success",
+                title: "Vendor assigned successfully",
+            });
+            setShowVendorDialog(false);
+            setSelectedVendorId('');
+            setPreferredMeals([]);
+            // Refetch user data to update
+            await getUserData();
+        } catch (error) {
+            console.error('Error assigning vendor:', error);
+            toast({
+                variant: "error",
+                title: "Error assigning vendor",
+            });
+        } finally {
+            setIsAssigning(false);
+        }
+    };
+
+    const toggleMeal = (meal: string) => {
+        setPreferredMeals(prev =>
+            prev.includes(meal) ? prev.filter(m => m !== meal) : [...prev, meal]
+        );
     };
 
     const handlePrevMonth = () => {
@@ -449,6 +573,10 @@ export default function Timetable() {
     return (
         <div className="p-3 space-y-8 bg-gray-100">
             <h1 className="text-2xl font-bold text-gray-800">Tiffin Timetable</h1>
+            <Button style={{ marginTop: "0.5rem" }} onClick={() => {
+                getVendors();
+                setShowVendorDialog(true);
+            }}>Switch Vendor</Button>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Calendar */}
@@ -456,11 +584,11 @@ export default function Timetable() {
                     <h2 className="text-lg font-semibold text-gray-700 mb-4">Attendance Calendar</h2>
                     <div className="w-full overflow-x-auto">
                         <div className="flex justify-between items-center mb-4">
-                            <Button variant="outline" size="sm" onClick={handlePrevMonth}>Previous</Button>
+                            <Button variant="destructive" size="sm" onClick={handlePrevMonth}>Previous</Button>
                             <h3 className="text-lg font-semibold">
                                 {currentMonth.toLocaleString("default", { month: "long", year: "numeric" })}
                             </h3>
-                            <Button variant="outline" size="sm" onClick={handleNextMonth}>Next</Button>
+                            <Button variant="success" size="sm" onClick={handleNextMonth}>Next</Button>
                         </div>
 
                         <table className="w-full border-collapse text-sm">
@@ -521,7 +649,7 @@ export default function Timetable() {
                     </div>
 
                     {pendingAmount > 0 && (
-                        <Button variant="outline" className="w-full" onClick={openPaidModal} disabled={disableBtn}>
+                        <Button variant="warning" className="w-full" onClick={openPaidModal} disabled={disableBtn}>
                             Mark Paid Days
                         </Button>
                     )}
@@ -629,6 +757,67 @@ export default function Timetable() {
                             disabled={disableBtn || selectedPaidDays.size === 0}
                         >
                             Confirm Paid
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showVendorDialog} onOpenChange={setShowVendorDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Select Vendor</DialogTitle>
+                        <DialogDescription>Choose a vendor to assign for tiffin service.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        {isLoadingVendors ? (
+                            <p>Loading vendors...</p>
+                        ) : vendors.length === 0 ? (
+                            <p>No vendors available.</p>
+                        ) : (
+                            <>
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Select Vendor</Label>
+                                    <RadioGroup value={selectedVendorId} onValueChange={setSelectedVendorId}>
+                                        {vendors.map((vendor) => (
+                                            <div key={vendor._id} className="flex items-center space-x-2 p-2 border rounded-md">
+                                                <RadioGroupItem value={vendor._id} id={vendor._id} />
+                                                <Label htmlFor={vendor._id}>
+                                                    <div>
+                                                        <h3 className="font-semibold">{vendor.shopName}</h3>
+                                                        <p className="text-sm text-gray-600">{vendor.address}</p>
+                                                        <p className="text-sm">₹{vendor.amountPerDay}/day</p>
+                                                    </div>
+                                                </Label>
+                                            </div>
+                                        ))}
+                                    </RadioGroup>
+                                </div>
+                                {selectedVendorId && (
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-medium">Select Preferred Meals</Label>
+                                        {(vendors.find(v => v._id === selectedVendorId)?.availableMealTypes || ["breakfast", "lunch", "dinner"]).map((meal) => (
+                                            <div key={meal} className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={meal}
+                                                    checked={preferredMeals.includes(meal)}
+                                                    onCheckedChange={() => toggleMeal(meal)}
+                                                />
+                                                <Label htmlFor={meal} className="text-sm capitalize">
+                                                    {meal}
+                                                </Label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowVendorDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={assignVendor} disabled={!selectedVendorId || isAssigning}>
+                            {isAssigning ? 'Assigning...' : 'Assign Vendor'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

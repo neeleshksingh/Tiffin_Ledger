@@ -63,7 +63,7 @@ axiosVendor.interceptors.response.use(
         if (error.response?.status === 401 && typeof window !== 'undefined') {
             localStorage.removeItem(VENDOR_TOKEN_KEY);
             localStorage.removeItem(VENDOR_USER_KEY);
-            window.location.href = '/vendor/login';
+            window.location.href = '/login';
         }
 
         return Promise.reject(error);

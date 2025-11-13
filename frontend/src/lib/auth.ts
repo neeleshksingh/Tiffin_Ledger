@@ -1,3 +1,5 @@
+import Cookies from 'js-cookie';
+
 export const loginVendor = (token: string, user: any) => {
     if (typeof window !== "undefined") {
         localStorage.setItem("vendorToken", token);
@@ -9,6 +11,7 @@ export const logoutVendor = () => {
     if (typeof window !== "undefined") {
         localStorage.removeItem("vendorToken");
         localStorage.removeItem("vendorUser");
+        Cookies.remove('vendorToken', { path: '/' });
     }
     window.location.href = "/login";
 };

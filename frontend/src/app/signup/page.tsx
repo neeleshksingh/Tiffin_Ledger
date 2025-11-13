@@ -16,9 +16,7 @@ export default function SignUp() {
     const { toast } = useToast();
     const nav = useRouter();
 
-    // User form state
     const [userData, setUserData] = useState({ name: "", email: "", password: "" });
-    // Vendor form state
     const [vendorData, setVendorData] = useState({ vendorId: "", username: "", password: "" });
 
     const handleUserChange = (e: any) => {
@@ -51,8 +49,8 @@ export default function SignUp() {
         try {
             const response = await axios.post(`${process.env.NEXT_PUBLIC_API_ENDPOINT}/user/vendors/signup`, vendorData);
             toast({ variant: "success", title: "Vendor account created! You can now log in." });
-            localStorage.setItem('vendorToken', response.data.token); // optional
-            nav.push('/vendor/dashboard'); // or /vendor/login
+            localStorage.setItem('vendorToken', response.data.token);
+            nav.push('/vendor/dashboard');
         } catch (err: any) {
             toast({ variant: "error", title: err.response?.data?.message || "Vendor signup failed" });
         } finally {
