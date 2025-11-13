@@ -345,7 +345,7 @@ export default function Timetable() {
             const alreadyPaid = paidRes.data.data || [];
 
             setEligibleDays(eligible);
-            setSelectedPaidDays(new Set(alreadyPaid)); // pre-check
+            setSelectedPaidDays(new Set(alreadyPaid));
             setShowPaidRangeModal(true);
         } catch (err: any) {
             toast({
@@ -440,7 +440,6 @@ export default function Timetable() {
             setShowVendorDialog(false);
             setSelectedVendorId('');
             setPreferredMeals([]);
-            // Refetch user data to update
             await getUserData();
         } catch (error) {
             console.error('Error assigning vendor:', error);
@@ -457,6 +456,37 @@ export default function Timetable() {
         setPreferredMeals(prev =>
             prev.includes(meal) ? prev.filter(m => m !== meal) : [...prev, meal]
         );
+    };
+
+    useEffect(() => {
+        if (!showVendorDialog || !userData) return;
+
+        const currentVendor = userData.messId;
+        const currentPreferred = (userData.preferredMealTypes || []) as string[];
+
+        if (selectedVendorId && vendors.length > 0) {
+            const selectedVendor = vendors.find(v => v._id === selectedVendorId);
+            if (!selectedVendor) return;
+
+            if (currentVendor?._id === selectedVendorId) {
+                setPreferredMeals(currentPreferred.filter(m => selectedVendor.availableMealTypes.includes(m)));
+            }
+            else {
+                setPreferredMeals([...selectedVendor.availableMealTypes]);
+            }
+        }
+
+        else if (!selectedVendorId && currentVendor) {
+            setSelectedVendorId(currentVendor._id);
+            setPreferredMeals(currentPreferred);
+        }
+    }, [showVendorDialog, selectedVendorId, vendors, userData]);
+
+    const openVendorDialog = async () => {
+        setSelectedVendorId('');
+        setPreferredMeals([]);
+        await getVendors();
+        setShowVendorDialog(true);
     };
 
     const handlePrevMonth = () => {
@@ -573,10 +603,7 @@ export default function Timetable() {
     return (
         <div className="p-3 space-y-8 bg-gray-100">
             <h1 className="text-2xl font-bold text-gray-800">Tiffin Timetable</h1>
-            <Button style={{ marginTop: "0.5rem" }} onClick={() => {
-                getVendors();
-                setShowVendorDialog(true);
-            }}>Switch Vendor</Button>
+            <Button style={{ marginTop: "0.5rem" }} onClick={openVendorDialog}>Switch Vendor</Button>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Calendar */}
@@ -792,17 +819,19 @@ export default function Timetable() {
                                         ))}
                                     </RadioGroup>
                                 </div>
+
+                                {/* Meal Preferences Section */}
                                 {selectedVendorId && (
                                     <div className="space-y-2">
                                         <Label className="text-sm font-medium">Select Preferred Meals</Label>
                                         {(vendors.find(v => v._id === selectedVendorId)?.availableMealTypes || ["breakfast", "lunch", "dinner"]).map((meal) => (
                                             <div key={meal} className="flex items-center space-x-2">
                                                 <Checkbox
-                                                    id={meal}
+                                                    id={`meal-${meal}`}
                                                     checked={preferredMeals.includes(meal)}
                                                     onCheckedChange={() => toggleMeal(meal)}
                                                 />
-                                                <Label htmlFor={meal} className="text-sm capitalize">
+                                                <Label htmlFor={`meal-${meal}`} className="text-sm capitalize">
                                                     {meal}
                                                 </Label>
                                             </div>
@@ -813,7 +842,11 @@ export default function Timetable() {
                         )}
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowVendorDialog(false)}>
+                        <Button variant="outline" onClick={() => {
+                            setShowVendorDialog(false);
+                            setSelectedVendorId('');
+                            setPreferredMeals([]);
+                        }}>
                             Cancel
                         </Button>
                         <Button onClick={assignVendor} disabled={!selectedVendorId || isAssigning}>
