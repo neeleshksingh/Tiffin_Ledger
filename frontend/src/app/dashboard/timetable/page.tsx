@@ -96,6 +96,11 @@ export default function Timetable() {
     const [isLoadingVendors, setIsLoadingVendors] = useState(false);
     const [isAssigning, setIsAssigning] = useState(false);
 
+    const [today, setToday] = useState<Date>(() => {
+        const d = new Date();
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    });
+
     const getUserData = async () => {
         try {
             const stored = localStorage.getItem("user");
@@ -133,15 +138,6 @@ export default function Timetable() {
         availableMeals.reduce((acc, meal) => ({ ...acc, [meal]: false }), {} as DayMeals),
         [availableMeals]
     );
-
-    const today = useMemo(() => {
-        const t = new Date();
-        t.setHours(0, 0, 0, 0);
-        t.setMinutes(0);
-        t.setSeconds(0);
-        t.setMilliseconds(0);
-        return t;
-    }, [currentDayKey]);
 
     const fetchMonthData = async (month: Date) => {
         try {
@@ -227,25 +223,32 @@ export default function Timetable() {
 
     // Day change detection
     useEffect(() => {
-        const checkDayChange = () => {
-            const nowDay = new Date().toDateString();
-            if (nowDay !== currentDayKey) {
-                setCurrentDayKey(nowDay);
+        const updateToday = () => {
+            const now = new Date();
+            const newToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            setToday(prev => {
+                if (prev.getTime() !== newToday.getTime()) {
+                    return newToday;
+                }
+                return prev;
+            });
+        };
+
+        updateToday();
+        const interval = setInterval(updateToday, 60000);
+
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                updateToday();
             }
         };
-
-        checkDayChange();
-        const intervalId = setInterval(checkDayChange, 5 * 60 * 1000);
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') checkDayChange();
-        };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
+        document.addEventListener('visibilitychange', handleVisibility);
 
         return () => {
-            clearInterval(intervalId);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibility);
         };
-    }, [currentDayKey]);
+    }, []);
 
     const handleDayClick = (selectedDate: Date) => {
         if (selectedDate.getMonth() !== currentMonth.getMonth()) return;
