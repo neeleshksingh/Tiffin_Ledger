@@ -11,56 +11,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@components/components/ui/radio-group";
+import { VendorDetails } from "@components/app/models/Vendor-Details.model";
 
 type MealType = "breakfast" | "lunch" | "dinner";
 type DayMeals = Record<MealType, boolean>;
 type MonthDays = Record<string, DayMeals>;
-
-interface BillingInfo {
-    name: string;
-    gstin: string;
-    address: string;
-}
-interface VendorDetails {
-    _id: string;
-    name: string;
-    shopName: string;
-    address: string;
-    contactNumber: string;
-    amountPerDay: number;
-    gstNumber: string;
-    billingInfo: BillingInfo;
-    availableMealTypes: string[];
-}
-
-interface TiffinDay {
-    date: string;
-    meals: Record<MealType, boolean>;
-}
-interface TiffinOverview {
-    month: string;
-    totalDays: number;
-    totalMeals: number;
-    tiffinTakenDays: number;
-    days: TiffinDay[];
-}
-
-interface UserData {
-    data: {
-        user: {
-            _id: string;
-            name: string;
-            email: string;
-            createdAt: string;
-            updatedAt: string;
-            __v?: number;
-            messId: VendorDetails;
-            profilePic: string;
-        };
-        tiffinOverview: TiffinOverview[];
-        vendor: VendorDetails;
-    };
-}
 
 export default function Timetable() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
