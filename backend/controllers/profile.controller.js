@@ -9,7 +9,7 @@ const profileSchema = Joi.object({
     email: Joi.string().email(),
     address: Joi.object({
         line1: Joi.string(),
-        line2: Joi.string(),
+        line2: Joi.string().allow(''),
         city: Joi.string(),
         state: Joi.string(),
         zipCode: Joi.string().pattern(/^\d{6}$/)
@@ -19,7 +19,7 @@ const profileSchema = Joi.object({
         alternatePhone: Joi.string().pattern(/^\d{10}$/).allow('')
     }),
     messId: Joi.string().hex().length(24),
-    profilePic: Joi.string().uri()
+    profilePic: Joi.string().uri().allow('')
 });
 
 const getCacheKey = (userId) => `profile:${userId}`;
