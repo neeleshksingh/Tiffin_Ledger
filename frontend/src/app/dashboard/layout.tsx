@@ -51,12 +51,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
     const getUserData = async () => {
         try {
-            const response = await axiosInstance.get(`profile/view-profile/${JSON.parse(localStorage.getItem("user") || "{}")._id}`);
-            setUserData(response.data.data.user);
-        } catch (error) {
+            const userJson = localStorage.getItem("user");
+            if (userJson) {
+                const userData = JSON.parse(userJson);
+                const messId = userData?.messId;
+                if (messId) {
+                    const response = await axiosInstance.get(`profile/view-profile/${JSON.parse(localStorage.getItem("user") || "{}")._id}`);
+                    setUserData(response.data.data.user);
+                } else {
+                    toast({
+                        variant: "warning",
+                        title: "Please join a mess to access all features.",
+                    });
+                }
+            }
+        } catch (error: any) {
+            console.log("Error fetching user data:", error);
             toast({
                 variant: "error",
-                title: `Error fetching user data: ${error}`,
+                title: `Error fetching user data: ${error.response.data.message}`,
             });
         }
     }

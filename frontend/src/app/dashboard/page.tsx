@@ -66,6 +66,7 @@ export default function Landing() {
             if (user) {
                 const parsedUser = JSON.parse(user);
                 const userId = parsedUser._id;
+                if(!localStorage.getItem("user")) return;
                 const response = await axiosInstance.get(`/tiffin/tiffin-bill/${userId}`);
                 if (response && response.data && response.data.length > 0) {
                     setAllMonths(response.data);

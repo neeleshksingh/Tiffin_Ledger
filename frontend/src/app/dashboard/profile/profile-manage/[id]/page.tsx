@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useToast } from '@components/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import axiosInstance from '@components/interceptors/axios.interceptor';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@components/components/ui/dialog';
+import { Button } from '@components/components/ui/button';
 
 interface BillingInfo {
     name: string;
@@ -93,6 +95,7 @@ interface PageProps {
 
 export default function ProfileManage({ params }: PageProps) {
     const [data, setData] = useState<UserData['data'] | null>(null);
+    const [showDialog, setShowDialog] = useState(false);
     const { toast } = useToast();
     const nav = useRouter();
     const resolvedParams = React.use(params);
@@ -151,75 +154,76 @@ export default function ProfileManage({ params }: PageProps) {
         }));
     };
 
+
     useEffect(() => {
-        const getUserData = async () => {
-            try {
-                const userJson = localStorage.getItem("user");
-                if (userJson) {
-                    const userData = JSON.parse(userJson);
-                    const messId = userData?.messId;
-
-                    if (!messId) {
-                        console.log('Please update your profile first. And don\'t forget to select your mess.');
-                        alert('Please update your profile first. And don\'t forget to select your mess.');
-                    }
-
-                    const response = await axiosInstance.get<UserData>(`/profile/view-profile/${resolvedParams.id}`);
-                    const user = response.data.data.user;
-
-                    if (user) {
-                        setFormData({
-                            userId: user._id || '',
-                            name: user.name || '',
-                            email: user.email || '',
-                            address: {
-                                line1: user.address?.line1 || '',
-                                line2: user.address?.line2 || '',
-                                city: user.address?.city || '',
-                                state: user.address?.state || '',
-                                zipCode: user.address?.zipCode || '',
-                            },
-                            contact: {
-                                phone: user.contact?.phone || '',
-                                alternatePhone: user.contact?.alternatePhone || '',
-                            },
-                            messId: user.messId?._id || '',
-                            profilePic: user.profilePic || '',
-                        });
-                    } else {
-                        console.error('User data is missing!');
-                        toast({
-                            variant: 'error',
-                            title: 'User data is missing!',
-                        });
-                    }
-                } else {
-                    nav.push("/login");
-                }
-            } catch (error: unknown) {
-                if (error instanceof Error) {
-                    console.error("Error fetching user data:", error);
-                    const axiosError = error as { response?: { status?: number } };
-                    if (axiosError.response?.status === 403) {
-                        localStorage.removeItem("token");
-                        nav.push("/login");
-                        toast({
-                            variant: "error",
-                            title: "Session Expired, Please login again",
-                        });
-                    } else {
-                        toast({
-                            variant: "error",
-                            title: `Error fetching user data: ${error.message}`,
-                        });
-                    }
-                }
-            }
-        };
-
         getUserData();
         getVendors();
     }, [resolvedParams.id, nav, toast]);
+
+    const getUserData = async () => {
+        try {
+            const userJson = localStorage.getItem("user");
+            if (userJson) {
+                const userData = JSON.parse(userJson);
+                const messId = userData?.messId;
+
+                if (!messId) {
+                    setShowDialog(true);
+                    return;
+                }
+
+                const response = await axiosInstance.get<UserData>(`/profile/view-profile/${resolvedParams.id}`);
+                const user = response.data.data.user;
+
+                if (user) {
+                    setFormData({
+                        userId: user._id || '',
+                        name: user.name || '',
+                        email: user.email || '',
+                        address: {
+                            line1: user.address?.line1 || '',
+                            line2: user.address?.line2 || '',
+                            city: user.address?.city || '',
+                            state: user.address?.state || '',
+                            zipCode: user.address?.zipCode || '',
+                        },
+                        contact: {
+                            phone: user.contact?.phone || '',
+                            alternatePhone: user.contact?.alternatePhone || '',
+                        },
+                        messId: user.messId?._id || '',
+                        profilePic: user.profilePic || '',
+                    });
+                } else {
+                    console.error('User data is missing!');
+                    toast({
+                        variant: 'error',
+                        title: 'User data is missing!',
+                    });
+                }
+            } else {
+                nav.push("/login");
+            }
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error("Error fetching user data:", error);
+                const axiosError = error as { response?: { status?: number } };
+                if (axiosError.response?.status === 403) {
+                    localStorage.removeItem("token");
+                    nav.push("/login");
+                    toast({
+                        variant: "error",
+                        title: "Session Expired, Please login again",
+                    });
+                } else {
+                    toast({
+                        variant: "error",
+                        title: `Error fetching user data: ${error.message}`,
+                    });
+                }
+            }
+        }
+    };
 
     const getVendors = async () => {
         try {
@@ -260,6 +264,7 @@ export default function ProfileManage({ params }: PageProps) {
                 variant: "success",
                 title: "Profile updated successfully",
             });
+            await getUserData();
         } catch (error: unknown) {
             if (error instanceof Error) {
                 toast({
@@ -429,6 +434,33 @@ export default function ProfileManage({ params }: PageProps) {
                     </div>
                 </form>
             </div>
+
+            <Dialog open={showDialog} onOpenChange={setShowDialog}>
+                <DialogContent className="sm:max-w-md animate-in slide-in-from-bottom-4 duration-300 ease-out">
+                    <div className="text-center">
+                        <div className="mx-auto mb-4 w-16 h-16 bg-gradient-to-r from-yellow-400 to-pink-500 rounded-full flex items-center justify-center animate-bounce">
+                            <span className="text-2xl">🍱</span>
+                        </div>
+                        <DialogHeader>
+                            <DialogTitle className="text-2xl font-bold text-blue-800 flex items-center justify-center gap-2 mb-2">
+                                🎉 Adventure Awaits!
+                            </DialogTitle>
+                            <DialogDescription className="text-gray-600 leading-relaxed space-y-2">
+                                <span>Hey foodie! Before we dive into the delicious details, let's spruce up your profile. ✨</span>
+                                <span>And oh, don't forget to pick your fave mess – it's where the magic (and meals) happen! 😋</span>
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="sm:justify-center mt-4">
+                            <Button
+                                onClick={() => setShowDialog(false)}
+                                className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white px-8 py-3 rounded-full shadow-lg transform hover:scale-110 transition-all duration-300 animate-pulse"
+                            >
+                                Let's Go! 🚀
+                            </Button>
+                        </DialogFooter>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
