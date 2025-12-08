@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.2.0] - 2025-12-08
+
+### 🚀 Highlights
+
+- Upgraded Next.js and sharp dependencies for improved performance and security.
+
+### ✨ New Features
+
+- Added peer dependency flags to several packages in `package-lock.json` for better dependency management.
+
+### 🧩 Backend & APIs
+
+- Refactored Redis client initialization to handle connection errors and timeouts more gracefully.
+
+### 🖌️ UX/UI Improvements
+
+- Addressed Next.js/React Flight RCE vulnerability to enhance application security.
+
+### 🛠️ Fixes & Improvements
+
+- Allowed empty values for profile address line2 and profilePic in the validation schema.
+- Refactored models into separate TypeScript files for better code organization and maintainability.
+
 ## [1.1.0] - 2025-11-09
 
 ### 🚀 Highlights
