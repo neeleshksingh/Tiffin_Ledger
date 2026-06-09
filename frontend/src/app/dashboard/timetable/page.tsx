@@ -465,6 +465,13 @@ export default function Timetable() {
         return dayMeals ? Object.values(dayMeals).filter(Boolean).length : 0;
     };
 
+    const isDayMarked = (day: Date): boolean => {
+        if (!(day instanceof Date) || isNaN(day.getTime())) return false;
+        if (day.getMonth() !== currentMonth.getMonth()) return false;
+        const dayNumber = String(day.getDate()).padStart(2, "0");
+        return monthDays[dayNumber] !== undefined;
+    };
+
     const getCalendarDays = (month: Date): Date[] => {
         const year = month.getFullYear();
         const mon = month.getMonth();
@@ -595,11 +602,13 @@ export default function Timetable() {
                                                         ? "text-gray-400 bg-gray-100 opacity-50 cursor-not-allowed"
                                                         : day > today
                                                             ? "text-gray-400 bg-gray-100 opacity-50 cursor-not-allowed"
-                                                            : getDayMealsCount(day) > 1
-                                                                ? "bg-green-500 text-white hover:bg-green-600"
-                                                                : getDayMealsCount(day) === 1
-                                                                    ? "bg-yellow-500 text-white hover:bg-yellow-600"
-                                                                    : "bg-red-500 text-white hover:bg-red-600"
+                                                            : !isDayMarked(day)
+                                                                ? "bg-blue-100 text-blue-700 border-2 border-dashed border-blue-300 hover:bg-blue-200"
+                                                                : getDayMealsCount(day) > 1
+                                                                    ? "bg-green-500 text-white hover:bg-green-600"
+                                                                    : getDayMealsCount(day) === 1
+                                                                        ? "bg-yellow-500 text-white hover:bg-yellow-600"
+                                                                        : "bg-red-500 text-white hover:bg-red-600"
                                                         }`}
                                                 >
                                                     {day.getDate()}
@@ -819,7 +828,7 @@ export default function Timetable() {
                 <h2 className="text-lg font-semibold text-gray-700 mb-4">How it Works</h2>
                 <ul className="list-disc pl-6 space-y-2 text-sm text-gray-600">
                     <li>Click on a date to select meals ({availableMeals.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ')}).</li>
-                    <li>Green/yellow/red days indicate multiple/single/no meals taken.</li>
+                    <li>Green/yellow days indicate multiple/single meals taken, red means no meals taken, and blue (dashed) means not yet marked.</li>
                     <li>Use "Mark Paid Range" to record partial/full month payments.</li>
                     <li>The pending amount is calculated based on unpaid taken meals at ₹{payableAmount} per meal.</li>
                 </ul>

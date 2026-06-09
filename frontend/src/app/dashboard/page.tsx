@@ -134,6 +134,9 @@ export default function Landing() {
     }, []);
 
     const totalYearlyMeals = useMemo(() => allMonths.reduce((sum: number, m: any) => sum + m.tiffinMeals, 0), [allMonths]);
+    const totalPaidAllMonths = useMemo(() => allMonths.reduce((sum: number, m: any) => sum + (m.paidAmount || 0), 0), [allMonths]);
+    const totalPendingAllMonths = useMemo(() => allMonths.reduce((sum: number, m: any) => sum + (m.pendingAmount || 0), 0), [allMonths]);
+    const totalBillAllMonths = useMemo(() => allMonths.reduce((sum: number, m: any) => sum + (m.totalAmount || m.billAmount || 0), 0), [allMonths]);
 
     const isMonthlyView = viewMode === 'monthly';
     const totalConsumption = isMonthlyView ? takenDays : totalYearlyMeals;
@@ -186,11 +189,13 @@ export default function Landing() {
                             </div>
                             <div>
                                 <h3 className="text-xl font-semibold text-gray-800 font-poppins">Total Payments & Pending Dues</h3>
-                                <p className="text-sm text-gray-500 font-roboto">Overview of payments and dues</p>
+                                <p className="text-sm text-gray-500 font-roboto">All-time overview across all months</p>
                             </div>
                         </div>
-                        <div className="text-xl font-bold text-gray-800 font-poppins">₹ {tiffinData?.paidAmount || 0} Paid</div>
-                        <p className="text-sm text-gray-500 font-roboto">Pending Dues: ₹ {tiffinData?.pendingAmount || 0}</p>
+                        <div className="text-xl font-bold text-green-700 font-poppins">₹ {totalPaidAllMonths} Paid</div>
+                        <div className="text-xl font-bold text-red-600 font-poppins">₹ {totalPendingAllMonths} Pending</div>
+                        <p className="text-sm text-gray-500 font-roboto mt-1">Total Billed: ₹ {totalBillAllMonths} ({allMonths.length} month{allMonths.length !== 1 ? 's' : ''})</p>
+                        <p className="text-xs text-gray-400 font-roboto mt-1">This month: ₹{tiffinData?.paidAmount || 0} paid / ₹{tiffinData?.pendingAmount || 0} pending</p>
                     </div>
 
                     {/* Card 4 */}
